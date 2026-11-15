@@ -30,11 +30,14 @@ jobs:
           mkdir -p out
           cp app/build/outputs/apk/release/app-release.apk out/DksObhod.apk
           cp app/build/outputs/apk/debug/app-debug.apk out/DksObhod-debug.apk
+          { printf '<!doctype html>\n<html lang="ru"><head><meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n</head><body>\n'
+            cat web/obhod.html
+            printf '\n</body></html>\n'; } > out/DksObhod-iPhone.html
 
       - uses: actions/upload-artifact@v4
         with:
           name: DksObhod-apk
-          path: out/*.apk
+          path: out/*
 
       # Последняя сборка выкладывается в Releases — APK удобно скачать прямо с телефона.
       - name: Publish to release "latest"
@@ -45,7 +48,10 @@ jobs:
           prerelease: true
           make_latest: true
           target_commitish: ${{ github.sha }}
-          files: out/DksObhod.apk
+          files: |
+            out/DksObhod.apk
+            out/DksObhod-iPhone.html
           body: |
             Сборка из ветки `${{ github.ref_name }}`, коммит ${{ github.sha }}.
-            Скачайте DksObhod.apk на телефон и установите.
+            Android: скачайте DksObhod.apk и установите.
+            iPhone / браузер: DksObhod-iPhone.html — веб-версия одним файлом.
