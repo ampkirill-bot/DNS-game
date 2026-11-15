@@ -59,3 +59,10 @@ jobs:
             Сборка из ветки `${{ github.ref_name }}`, коммит ${{ github.sha }}.
             Android: скачайте DksObhod.apk и установите.
             iPhone / браузер: DksObhod-iPhone.html — веб-версия одним файлом.
+
+      - name: Check iPhone web page (GitHub Pages)
+        continue-on-error: true
+        run: |
+          for u in https://ampkirill-bot.github.io/DNS-game/ https://ampkirill-bot.github.io/DNS-game/sw.js; do
+            echo "== $u"; curl -sL -w '\nHTTP %{http_code}\n' "$u" | grep -E '<title>|const CACHE|<h1|HTTP ' | head -5
+          done
