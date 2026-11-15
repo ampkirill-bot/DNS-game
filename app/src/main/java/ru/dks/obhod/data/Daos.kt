@@ -1,0 +1,91 @@
+package ru.dks.obhod.data
+
+import androidx.room.Dao
+import androidx.room.Delete
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import androidx.room.Transaction
+import androidx.room.Update
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface ReadingDao {
+    @Query("SELECT * FROM readings WHERE gpaId = :gpaId ORDER BY timestamp DESC")
+    fun forGpa(gpaId: String): Flow<List<Reading>>
+
+    @Query(
+        "SELECT r.* FROM readings r INNER JOIN " +
+            "(SELECT gpaId AS g, MAX(timestamp) AS mt FROM readings GROUP BY gpaId) m " +
+            "ON r.gpaId = m.g AND r.timestamp = m.mt"
+    )
+    fun latestPerGpa(): Flow<List<Reading>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(r: Reading): Long
+
+    @Delete
+    suspend fun delete(r: Reading)
+}
+
+@Dao
+interface HangarDao {
+    @Query("SELECT * FROM hangar_photos WHERE gpaId = :gpaId ORDER BY timestamp DESC")
+    fun photos(gpaId: String): Flow<List<HangarPhoto>>
+
+    @Insert
+    suspend fun insertPhoto(p: HangarPhoto): Long
+
+    @Update
+    suspend fun updatePhoto(p: HangarPhoto)
+
+    @Delete
+    suspend fun deletePhoto(p: HangarPhoto)
+
+    @Query("SELECT * FROM hangar_notes WHERE gpaId = :gpaId")
+    suspend fun note(gpaId: String): HangarNote?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveNote(n: HangarNote)
+}
+
+@Dao
+abstract class RemarkDao {
+    @Query("SELECT * FROM remarks WHERE gpaId = :gpaId ORDER BY resolved ASC, timestamp DESC")
+    abstract fun forGpa(gpaId: String): Flow<List<Remark>>
+
+    @Query("SELECT * FROM remark_photos WHERE remarkId IN (SELECT id FROM remarks WHERE gpaId = :gpaId) ORDER BY id")
+    abstract fun photosForGpa(gpaId: String): Flow<List<RemarkPhoto>>
+
+    @Query("SELECT gpaId, COUNT(*) AS cnt FROM remarks WHERE resolved = 0 GROUP BY gpaId")
+    abstract fun openCounts(): Flow<List<GpaCount>>
+
+    @Query("SELECT * FROM remarks WHERE id = :id")
+    abstract suspend fun get(id: Long): Remark?
+
+    @Query("SELECT * FROM remark_photos WHERE remarkId = :remarkId ORDER BY id")
+    abstract suspend fun photos(remarkId: Long): List<RemarkPhoto>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsert(r: Remark): Long
+
+    @Delete
+    abstract suspend fun delete(r: Remark)
+
+    @Query("UPDATE remarks SET resolved = :resolved WHERE id = :id")
+    abstract suspend fun setResolved(id: Long, resolved: Boolean)
+
+    @Query("DELETE FROM remark_photos WHERE remarkId = :remarkId")
+    abstract suspend fun clearPhotos(remarkId: Long)
+
+    @Insert
+    abstract suspend fun insertPhotos(p: List<RemarkPhoto>)
+
+    @Transaction
+    open suspend fun save(remark: Remark, paths: List<String>): Long {
+        val id = upsert(remark)
+        clearPhotos(id)
+        insertPhotos(paths.map { RemarkPhoto(remarkId = id, path = it) })
+        return id
+    }
+}
