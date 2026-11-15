@@ -1,0 +1,14 @@
+name: Check Pages
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch site
+        run: |
+          for u in https://ampkirill-bot.github.io/DNS-game/ https://ampkirill-bot.github.io/DNS-game/sw.js; do
+            echo "== $u"; curl -sL -w '\nHTTP %{http_code}\n' "$u" | grep -E '<title>|const CACHE|<h1|HTTP ' | head -5
+          done

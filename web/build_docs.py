@@ -29,5 +29,11 @@ if ("serviceWorker" in navigator) {
 </body>
 </html>
 """
-(root / "docs" / "index.html").write_text(head + body + tail, encoding="utf-8")
-print("docs/index.html written")
+import shutil
+page = head + body + tail
+(root / "docs" / "index.html").write_text(page, encoding="utf-8")
+# Копия в корень: страница откроется, даже если в Pages выбран «/ (root)», а не «/docs».
+(root / "index.html").write_text(page, encoding="utf-8")
+for f in ["manifest.webmanifest", "sw.js", "apple-touch-icon.png", "icon-192.png", "icon-512.png", ".nojekyll"]:
+    shutil.copy(root / "docs" / f, root / f)
+print("docs/index.html and index.html written")
