@@ -18,6 +18,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -27,6 +30,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Opacity
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material3.Button
@@ -43,6 +50,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -62,6 +70,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -130,7 +139,7 @@ fun GpaScreen(
     fun clearForm() { form = List(FIELD_COUNT) { "" }; editingId = 0; editingTs = 0 }
 
     fun save() {
-        val nums = form.take(F_NOTE).map { parseNumber(it) }
+        val nums = form.take(F_NOTE).mapIndexed { i, t -> if (i < 5 && !gpa.hasCylinders) null else parseNumber(t) }
         if (nums.all { it == null } && form[F_NOTE].isBlank()) {
             Toast.makeText(ctx, "Нет данных для сохранения", Toast.LENGTH_SHORT).show()
             return
@@ -174,6 +183,29 @@ fun GpaScreen(
                 ),
             )
         },
+        bottomBar = {
+            if (tab == 0) {
+                Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
+                    Row(
+                        Modifier.fillMaxWidth().navigationBarsPadding().imePadding()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (editingId != 0L || dirty) {
+                            OutlinedButton(onClick = ::clearForm, modifier = Modifier.height(54.dp)) {
+                                Text(if (editingId != 0L) "Отмена" else "Очистить")
+                            }
+                        }
+                        Button(onClick = ::save, modifier = Modifier.weight(1f).height(54.dp)) {
+                            Icon(Icons.Default.Save, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (editingId != 0L) "Сохранить изменения" else "Сохранить запись",
+                                fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        },
         floatingActionButton = {
             if (tab == 1) {
                 ExtendedFloatingActionButton(
@@ -200,21 +232,16 @@ fun GpaScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    item { ReadingForm(form, ::set) }
-                    item {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = ::save, modifier = Modifier.weight(1f).height(56.dp)) {
-                                Icon(Icons.Default.Save, null)
+                    if (editingId != 0L) item {
+                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                            Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Edit, null)
                                 Spacer(Modifier.width(8.dp))
-                                Text(if (editingId != 0L) "Сохранить изменения" else "Сохранить запись")
-                            }
-                            if (editingId != 0L || dirty) {
-                                OutlinedButton(onClick = ::clearForm, modifier = Modifier.height(56.dp)) {
-                                    Text(if (editingId != 0L) "Отмена" else "Очистить")
-                                }
+                                Text("Редактирование записи от ${formatDateTime(editingTs)}", fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
+                    item { ReadingForm(form, gpa.hasCylinders, ::set) }
                     item {
                         Text(
                             "История записей",
@@ -227,6 +254,7 @@ fun GpaScreen(
                     items(readings, key = { it.id }) { r ->
                         ReadingCard(
                             r,
+                            showCylinders = gpa.hasCylinders,
                             highlighted = r.id == editingId,
                             onEdit = {
                                 form = r.toForm(); editingId = r.id; editingTs = r.timestamp
@@ -282,44 +310,81 @@ fun GpaScreen(
 }
 
 @Composable
-private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary)
+private fun Section(title: String, icon: ImageVector, content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(32.dp).clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
             content()
         }
     }
 }
 
 @Composable
-private fun ReadingForm(form: List<String>, set: (Int, String) -> Unit) {
+private fun CylinderField(i: Int, form: List<String>, set: (Int, String) -> Unit, modifier: Modifier) {
+    val dev = isCylinderDeviation(parseNumber(form[i]))
+    NumberField(
+        value = form[i],
+        onValueChange = { set(i, it) },
+        label = "Баллон ${i + 1}",
+        allowNegative = true,
+        autoComma = true,
+        isError = dev,
+        errorText = if (dev) "ОТКЛОНЕНИЕ" else null,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun ReadingForm(form: List<String>, hasCylinders: Boolean, set: (Int, String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Section("Пожарные баллоны") {
-            for (i in 0 until 5) {
-                val dev = isCylinderDeviation(parseNumber(form[i]))
-                NumberField(
-                    value = form[i],
-                    onValueChange = { set(i, it) },
-                    label = "Баллон №${i + 1}",
-                    allowNegative = true,
-                    autoComma = true,
-                    isError = dev,
-                    errorText = if (dev) "ОТКЛОНЕНИЕ (норма от −2,8 до 2,8)" else null,
-                    modifier = Modifier.fillMaxWidth(),
+        if (hasCylinders) {
+            Section("Пожарные баллоны", Icons.Default.LocalFireDepartment) {
+                val bad = (0 until 5).filter { isCylinderDeviation(parseNumber(form[it])) }
+                Text(
+                    if (bad.isEmpty()) "Норма: от −2,8 до 2,8"
+                    else "Отклонение: баллон " + bad.joinToString(", ") { "№${it + 1}" },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (bad.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else DeviationRed,
+                    fontWeight = if (bad.isEmpty()) FontWeight.Normal else FontWeight.Bold,
                 )
+                for (row in listOf(0 to 1, 2 to 3)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CylinderField(row.first, form, set, Modifier.weight(1f))
+                        CylinderField(row.second, form, set, Modifier.weight(1f))
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CylinderField(4, form, set, Modifier.weight(1f))
+                    Spacer(Modifier.weight(1f))
+                }
             }
         }
-        Section("Компрессор (МСК)") {
-            NumberField(form[F_MSK_OIL], { set(F_MSK_OIL, it) }, "Уровень в маслобаке МСК",
-                modifier = Modifier.fillMaxWidth())
-            NumberField(form[F_MSK_DIFF], { set(F_MSK_DIFF, it) }, "Перепад на фильтрах МСК",
-                allowNegative = true, modifier = Modifier.fillMaxWidth())
+        Section("Компрессор (МСК)", Icons.Default.Opacity) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumberField(form[F_MSK_OIL], { set(F_MSK_OIL, it) }, "Уровень масла",
+                    modifier = Modifier.weight(1f))
+                NumberField(form[F_MSK_DIFF], { set(F_MSK_DIFF, it) }, "Перепад фильтр.",
+                    allowNegative = true, modifier = Modifier.weight(1f))
+            }
         }
-        Section("Двигатель") {
+        Section("Двигатель", Icons.Default.Speed) {
             NumberField(form[F_ENG_OIL], { set(F_ENG_OIL, it) }, "Уровень в маслобаке двигателя",
                 modifier = Modifier.fillMaxWidth())
-            Text("Давление на фильтрах", style = MaterialTheme.typography.labelLarge)
+            Text("Давление на фильтрах", style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 NumberField(form[F_P_BEFORE], { set(F_P_BEFORE, it) }, "До", modifier = Modifier.weight(1f))
                 NumberField(form[F_P_AFTER], { set(F_P_AFTER, it) }, "После", modifier = Modifier.weight(1f))
@@ -328,9 +393,9 @@ private fun ReadingForm(form: List<String>, set: (Int, String) -> Unit) {
                 val diff = if (a != null && b != null) b - a else null
                 Column(
                     Modifier.weight(1f).padding(top = 8.dp)
-                        .clip(RoundedCornerShape(4.dp))
+                        .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.secondaryContainer)
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                 ) {
                     Text("Перепад", style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer)
@@ -343,25 +408,34 @@ private fun ReadingForm(form: List<String>, set: (Int, String) -> Unit) {
                 }
             }
         }
-        OutlinedTextField(
-            value = form[F_NOTE],
-            onValueChange = { set(F_NOTE, it) },
-            label = { Text("Примечание к записи") },
-            modifier = Modifier.fillMaxWidth(),
-            minLines = 2,
-        )
+        Section("Примечание", Icons.Default.EditNote) {
+            OutlinedTextField(
+                value = form[F_NOTE],
+                onValueChange = { set(F_NOTE, it) },
+                placeholder = { Text("Необязательно") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+            )
+        }
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ReadingCard(r: Reading, highlighted: Boolean, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun ReadingCard(
+    r: Reading,
+    showCylinders: Boolean,
+    highlighted: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
     Card(
         modifier = if (highlighted) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CardDefaults.shape) else Modifier,
         colors = CardDefaults.cardColors(
             containerColor = if (r.hasDeviation()) MaterialTheme.colorScheme.errorContainer
-            else MaterialTheme.colorScheme.surfaceContainer,
+            else MaterialTheme.colorScheme.surfaceContainerLowest,
         ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, bottom = 10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -372,6 +446,7 @@ private fun ReadingCard(r: Reading, highlighted: Boolean, onEdit: () -> Unit, on
                 IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, "Изменить") }
                 IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, "Удалить") }
             }
+            if (showCylinders) {
             Text("Баллоны:", style = MaterialTheme.typography.labelMedium)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 r.cylinders().forEachIndexed { i, v ->
@@ -391,6 +466,7 @@ private fun ReadingCard(r: Reading, highlighted: Boolean, onEdit: () -> Unit, on
             }
             Spacer(Modifier.height(6.dp))
             HorizontalDivider()
+            }
             Spacer(Modifier.height(4.dp))
             Text("МСК: уровень ${v(r.mskOilLevel)}, перепад на фильтрах ${v(r.mskFilterDiff)}")
             Text("Двигатель: уровень ${v(r.engineOilLevel)}")

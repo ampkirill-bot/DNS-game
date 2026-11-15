@@ -8,6 +8,8 @@ enum class Plant(val title: String) {
 data class Gpa(val id: String, val plant: Plant, val number: Int) {
     val title: String get() = "ГПА-$number"
     val fullTitle: String get() = "${plant.title} · ГПА-$number"
+    /** Пожарные баллоны есть только на Валанжинских ГПА. */
+    val hasCylinders: Boolean get() = plant == Plant.VALANZHIN
 }
 
 object GpaList {
