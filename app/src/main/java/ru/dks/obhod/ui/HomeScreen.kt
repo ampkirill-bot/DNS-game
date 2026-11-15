@@ -52,7 +52,7 @@ import ru.dks.obhod.data.Gpa
 import ru.dks.obhod.data.GpaList
 import ru.dks.obhod.data.Plant
 import ru.dks.obhod.data.Reading
-import ru.dks.obhod.data.hasDeviation
+import ru.dks.obhod.data.knownValues
 import ru.dks.obhod.ui.theme.DeviationRed
 import ru.dks.obhod.ui.theme.OkGreen
 import java.text.SimpleDateFormat
@@ -64,13 +64,15 @@ import java.util.Locale
 @Composable
 fun HomeScreen(onOpen: (String) -> Unit) {
     val app = app()
-    val latest by remember { app.db.readings().latestPerGpa() }.collectAsStateWithLifecycle(emptyList())
+    val all by remember { app.db.readings().all() }.collectAsStateWithLifecycle(emptyList())
     val openRemarks by remember { app.db.remarks().openCounts() }.collectAsStateWithLifecycle(emptyList())
-    val latestMap = latest.associateBy { it.gpaId }
+    val byGpa = remember(all) { all.groupBy { it.gpaId } }   // внутри — от новых к старым
+    val latestMap = byGpa.mapValues { it.value.first() }
+    val devMap = remember(byGpa) { byGpa.mapValues { knownValues(it.value).hasDeviation() } }
     val remarksMap = openRemarks.associate { it.gpaId to it.cnt }
 
     val doneToday = GpaList.all.count { g -> latestMap[g.id]?.let { isToday(it.timestamp) } == true }
-    val deviations = GpaList.all.count { g -> latestMap[g.id]?.hasDeviation() == true }
+    val deviations = GpaList.all.count { g -> devMap[g.id] == true }
     val remarksTotal = remarksMap.values.sum()
     val today = remember { SimpleDateFormat("EEEE, d MMMM", Locale("ru")).format(Date()) }
 
@@ -115,7 +117,7 @@ fun HomeScreen(onOpen: (String) -> Unit) {
                     }
                 }
                 items(list, key = { it.id }) { gpa ->
-                    GpaTile(gpa, latestMap[gpa.id], remarksMap[gpa.id] ?: 0) { onOpen(gpa.id) }
+                    GpaTile(gpa, latestMap[gpa.id], devMap[gpa.id] == true, remarksMap[gpa.id] ?: 0) { onOpen(gpa.id) }
                 }
             }
         }
@@ -164,9 +166,8 @@ private fun StatChip(icon: ImageVector, text: String, color: Color) {
 }
 
 @Composable
-private fun GpaTile(gpa: Gpa, last: Reading?, openRemarks: Int, onClick: () -> Unit) {
+private fun GpaTile(gpa: Gpa, last: Reading?, dev: Boolean, openRemarks: Int, onClick: () -> Unit) {
     val today = last != null && isToday(last.timestamp)
-    val dev = last?.hasDeviation() == true
     val stripe = when {
         dev -> DeviationRed
         today -> OkGreen

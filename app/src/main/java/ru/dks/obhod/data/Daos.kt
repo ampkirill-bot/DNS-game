@@ -26,6 +26,12 @@ interface ReadingDao {
 
     @Delete
     suspend fun delete(r: Reading)
+
+    @Query("DELETE FROM readings WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("SELECT * FROM readings ORDER BY timestamp DESC")
+    fun all(): Flow<List<Reading>>
 }
 
 @Dao

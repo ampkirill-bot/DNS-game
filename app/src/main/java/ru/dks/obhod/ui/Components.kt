@@ -95,10 +95,15 @@ fun NumberField(
     isError: Boolean = false,
     errorText: String? = null,
     autoComma: Boolean = false,
+    placeholder: String? = null,
 ) {
     // Храним позицию курсора; при внешнем изменении текста курсор ставится в конец.
     var tfv by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
     val shown = if (tfv.text == value) tfv else TextFieldValue(value, TextRange(value.length))
+    // Подпись над полем (а не внутри), чтобы серое прошлое значение было видно всегда.
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+    Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
     OutlinedTextField(
         value = shown,
         onValueChange = { new ->
@@ -113,7 +118,10 @@ fun NumberField(
             tfv = new.copy(text = text, selection = sel)
             onValueChange(text)
         },
-        label = { Text(label, maxLines = 1) },
+        placeholder = if (placeholder != null) {
+            { Text(placeholder, style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) }
+        } else null,
         singleLine = true,
         isError = isError,
         supportingText = if (errorText != null) {
@@ -131,8 +139,9 @@ fun NumberField(
         colors = if (isError) OutlinedTextFieldDefaults.colors(
             errorContainerColor = DeviationRed.copy(alpha = 0.10f),
         ) else OutlinedTextFieldDefaults.colors(),
-        modifier = modifier,
+        modifier = Modifier.fillMaxWidth(),
     )
+    }
 }
 
 @Composable
