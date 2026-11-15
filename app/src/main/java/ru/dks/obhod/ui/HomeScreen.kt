@@ -71,9 +71,6 @@ fun HomeScreen(onOpen: (String) -> Unit) {
     val devMap = remember(byGpa) { byGpa.mapValues { knownValues(it.value).hasDeviation() } }
     val remarksMap = openRemarks.associate { it.gpaId to it.cnt }
 
-    val doneToday = GpaList.all.count { g -> latestMap[g.id]?.let { isToday(it.timestamp) } == true }
-    val deviations = GpaList.all.count { g -> devMap[g.id] == true }
-    val remarksTotal = remarksMap.values.sum()
     val today = remember { SimpleDateFormat("EEEE, d MMMM", Locale("ru")).format(Date()) }
 
     Scaffold(
@@ -99,9 +96,6 @@ fun HomeScreen(onOpen: (String) -> Unit) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxSize().padding(pad),
         ) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                SummaryCard(doneToday, GpaList.all.size, deviations, remarksTotal)
-            }
             for (plant in Plant.entries) {
                 val list = GpaList.byPlant(plant)
                 val done = list.count { g -> latestMap[g.id]?.let { isToday(it.timestamp) } == true }
@@ -128,41 +122,6 @@ fun isToday(ts: Long): Boolean {
     val a = Calendar.getInstance()
     val b = Calendar.getInstance().apply { timeInMillis = ts }
     return a.get(Calendar.YEAR) == b.get(Calendar.YEAR) && a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
-}
-
-@Composable
-private fun SummaryCard(done: Int, total: Int, deviations: Int, remarks: Int) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text("$done", fontSize = 34.sp, fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer)
-                Text(" из $total ГПА записано сегодня", style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(bottom = 6.dp))
-            }
-            LinearProgressIndicator(
-                progress = { if (total == 0) 0f else done.toFloat() / total },
-                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                color = OkGreen,
-                trackColor = MaterialTheme.colorScheme.surface,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                StatChip(Icons.Default.ReportProblem, "Отклонений: $deviations",
-                    if (deviations > 0) DeviationRed else MaterialTheme.colorScheme.onPrimaryContainer)
-                StatChip(Icons.Default.Schedule, "Замечаний: $remarks",
-                    if (remarks > 0) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onPrimaryContainer)
-            }
-        }
-    }
-}
-
-@Composable
-private fun StatChip(icon: ImageVector, text: String, color: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(4.dp))
-        Text(text, color = color, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
-    }
 }
 
 @Composable
