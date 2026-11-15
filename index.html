@@ -109,6 +109,8 @@ main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: m
 .badge { display: inline-flex; align-items: center; gap: 4px; background: var(--bad); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .04em; padding: 2px 7px; border-radius: 6px; width: fit-content; }
 
 .tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--surface-2); border-radius: 12px; padding: 4px; gap: 4px; }
+.tabs3 { grid-template-columns: 1fr 1fr 1fr; }
+.tabs3 button { font-size: 14.5px; padding: 10px 4px; }
 .tabs button { border: 0; background: transparent; padding: 10px; border-radius: 9px; font-weight: 600; color: var(--muted); }
 .tabs button[aria-selected="true"] { background: var(--surface); color: var(--fg); box-shadow: var(--shadow); }
 
@@ -121,7 +123,7 @@ main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: m
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; align-items: end; }
 
-.nf { display: grid; gap: 4px; min-width: 0; }
+.nf { display: grid; gap: 4px; min-width: 0; align-content: start; }
 .nf label { font-size: 13px; color: var(--muted); font-weight: 600; }
 .nf-row { display: flex; border: 1.5px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
 .nf-row:focus-within { border-color: var(--steel); }
@@ -148,6 +150,10 @@ textarea:focus, .txt:focus { border-color: var(--steel); outline: none; }
 .btn.danger { background: var(--bad); color: #fff; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; }
 
+.status { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--muted); padding: 0 2px; }
+.status span { flex: 1; min-width: 0; }
+.link { border: 0; background: none; color: var(--ink); font-weight: 700; padding: 6px 0; white-space: nowrap; }
+.nf input::placeholder { color: var(--muted); opacity: .7; font-weight: 500; }
 .edit-banner { background: var(--amber-soft); color: var(--amber-fg); border-radius: var(--r); padding: 12px 14px; font-weight: 600; }
 .sec-title { font-size: 18px; font-weight: 700; margin: 8px 0 0; }
 .rec { background: var(--surface); border-radius: var(--r); box-shadow: var(--shadow); padding: 12px 6px 12px 14px; display: grid; gap: 6px; }
@@ -312,13 +318,66 @@ async function addFiles(files) {
 // ---------- Состояние интерфейса ----------
 const EMPTY_FORM = () => ({ c: ["", "", "", "", ""], mskOil: "", mskDiff: "", engOil: "", pB: "", pA: "", note: "" });
 let view = { name: "home" };
-let form = EMPTY_FORM(), editingId = null, formGpa = null;
+let form = EMPTY_FORM(), curId = null, formGpa = null, saveT = null;
+const ROUND_MS = 60 * 60 * 1000;          // ввод в течение часа — одна запись обхода
+const roundStart = {};                    // gpaId → время нажатия «Новая запись»
 let remarkDraft = null;
 const app = document.getElementById("app");
 
-const formDirty = () => form.c.some(Boolean) || ["mskOil", "mskDiff", "engOil", "pB", "pA", "note"].some(k => String(form[k]).trim());
+const NUM_KEYS = ["mskOil", "mskDiff", "engOil", "pB", "pA"];
 const latestFor = id => S.readings.filter(r => r.gpaId === id).sort((a, b) => b.ts - a.ts)[0];
 const rDev = r => r && r.c && r.c.some(isDev);
+// Открытая (текущая) запись обхода: последняя, созданная меньше часа назад.
+function openRecord(gid) {
+  const l = latestFor(gid); if (!l) return null;
+  return l.ts >= Math.max(Date.now() - ROUND_MS, roundStart[gid] || 0) ? l : null;
+}
+// Последние известные значения по каждому полю (без указанной записи).
+function knownValues(gid, excludeId) {
+  const out = { c: [null, null, null, null, null], ts: null };
+  for (const r of S.readings.filter(x => x.gpaId === gid && x.id !== excludeId).sort((a, b) => b.ts - a.ts)) {
+    r.c.forEach((v, i) => { if (out.c[i] == null && v != null) out.c[i] = v; });
+    for (const k of NUM_KEYS) if (out[k] == null && r[k] != null) out[k] = r[k];
+    if (out.ts == null) out.ts = r.ts;
+  }
+  return out;
+}
+const gpaDev = gid => knownValues(gid, null).c.some(isDev);
+let prev = { c: [] };   // серые подсказки на экране ГПА
+function loadForm(gid) {
+  const o = openRecord(gid); curId = o ? o.id : null; formGpa = gid;
+  form = o ? { c: o.c.map(fmt), mskOil: fmt(o.mskOil), mskDiff: fmt(o.mskDiff), engOil: fmt(o.engOil), pB: fmt(o.pB), pA: fmt(o.pA), note: o.note || "" } : EMPTY_FORM();
+  prev = knownValues(gid, curId);
+}
+// Автосохранение
+function scheduleSave() { clearTimeout(saveT); saveT = setTimeout(commitForm, 500); setStatus("Сохраняю…"); }
+function commitForm() {
+  clearTimeout(saveT); saveT = null;
+  if (!formGpa) return;
+  const g = gpaById(formGpa);
+  const r = { c: g.plant.cyl ? form.c.map(parseNum) : [null, null, null, null, null], note: form.note.trim() };
+  for (const k of NUM_KEYS) r[k] = parseNum(form[k]);
+  const any = r.c.some(v => v != null) || NUM_KEYS.some(k => r[k] != null) || r.note;
+  const cur = curId && S.readings.find(x => x.id === curId);
+  if (cur) {
+    if (any) Object.assign(cur, r); else { S.readings = S.readings.filter(x => x.id !== curId); curId = null; }
+  } else if (any) {
+    const rec = { id: uid(), gpaId: g.id, ts: Date.now(), ...r }; S.readings.push(rec); curId = rec.id;
+  }
+  persist();
+  if (view.name === "gpa" && view.id === formGpa) setStatus();
+}
+function statusText() {
+  const cur = curId && S.readings.find(x => x.id === curId);
+  if (cur) return `Запись обхода от ${hm(cur.ts)} · сохраняется автоматически`;
+  if (prev.ts) return `Серым — показания от ${dShort(prev.ts)}. Введите новые — сохранятся сами.`;
+  return "Введите показания — они сохранятся автоматически.";
+}
+function setStatus(text) {
+  const el = document.getElementById("save-status"); if (!el) return;
+  el.textContent = text || statusText();
+  const nb = document.getElementById("new-rec"); if (nb) nb.hidden = !curId;
+}
 const openRemarks = id => S.remarks.filter(r => r.gpaId === id && !r.resolved).length;
 
 function toast(msg) { const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; t.setAttribute("role", "status"); document.body.appendChild(t); setTimeout(() => t.remove(), 1800); }
@@ -341,7 +400,7 @@ function showA2hs() {
 // ---------- Экран: главная ----------
 function renderHome() {
   const done = GPAS.filter(g => { const l = latestFor(g.id); return l && isToday(l.ts); }).length;
-  const devs = GPAS.filter(g => rDev(latestFor(g.id))).length;
+  const devs = GPAS.filter(g => gpaDev(g.id)).length;
   const rms = S.remarks.filter(r => !r.resolved).length;
   const day = new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
   let h = `<header class="top"><div class="grow"><h1>Обход ДКС</h1><div class="sub">${esc(day[0].toUpperCase() + day.slice(1))}</div></div></header><main>`;
@@ -355,7 +414,7 @@ function renderHome() {
     const pd = list.filter(g => { const l = latestFor(g.id); return l && isToday(l.ts); }).length;
     h += `<div class="plant-h"><h2>${p.title}</h2><span>сегодня ${pd} / ${list.length}</span></div><div class="tiles">`;
     for (const g of list) {
-      const l = latestFor(g.id), today = l && isToday(l.ts), dev = rDev(l), rm = openRemarks(g.id);
+      const l = latestFor(g.id), today = l && isToday(l.ts), dev = gpaDev(g.id), rm = openRemarks(g.id);
       h += `<button class="tile ${today ? "today" : ""} ${dev ? "dev" : ""}" data-act="open" data-id="${g.id}">
         <span class="t"><small>ГПА</small><b class="num">${g.num}</b></span>
         <span class="when">${!l ? "нет записей" : today ? "сегодня " + hm(l.ts) : dShort(l.ts)}</span>
@@ -368,35 +427,44 @@ function renderHome() {
 }
 
 // ---------- Экран: ГПА ----------
+const prevOf = fid => fid[0] === "c" && fid.length === 2 ? prev.c[+fid[1]] : prev[fid];
+const getF = fid => fid[0] === "c" && fid.length === 2 ? form.c[+fid[1]] : form[fid];
+const setF = (fid, v) => { if (fid[0] === "c" && fid.length === 2) form.c[+fid[1]] = v; else form[fid] = v; };
+// Значение для расчётов: введённое сейчас, иначе последнее известное.
+const eff = fid => { const v = parseNum(getF(fid)); return v != null ? v : (prevOf(fid) ?? null); };
+const diffVal = () => { const a = eff("pA"), b = eff("pB"); return a != null && b != null ? b - a : null; };
 function nf(key, label, { neg = false, auto = false, idx = null } = {}) {
-  const val = idx == null ? form[key] : form.c[idx];
-  const dev = idx != null && isDev(parseNum(val));
   const fid = idx == null ? key : "c" + idx;
+  const val = getF(fid), pv = prevOf(fid);
+  const dev = idx != null && isDev(eff(fid));
   return `<div class="nf ${dev ? "dev" : ""}" data-wrap="${fid}"><label for="f-${fid}">${label}</label>
-    <div class="nf-row"><input id="f-${fid}" class="num" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-num="${fid}" data-neg="${neg ? 1 : 0}" data-auto="${auto ? 1 : 0}" value="${esc(val)}">
+    <div class="nf-row"><input id="f-${fid}" class="num" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-num="${fid}" data-neg="${neg ? 1 : 0}" data-auto="${auto ? 1 : 0}" value="${esc(val)}" placeholder="${pv == null ? "" : esc(fmt(pv))}">
     ${neg ? `<button type="button" class="sign" data-act="sign" data-f="${fid}" aria-label="Сменить знак">±</button>` : ""}</div>
     <span class="err">ОТКЛОНЕНИЕ</span></div>`;
 }
-const getF = fid => fid[0] === "c" && fid.length === 2 ? form.c[+fid[1]] : form[fid];
-const setF = (fid, v) => { if (fid[0] === "c" && fid.length === 2) form.c[+fid[1]] = v; else form[fid] = v; };
-const diffVal = () => { const a = parseNum(form.pA), b = parseNum(form.pB); return a != null && b != null ? b - a : null; };
 
+function cylHint() {
+  const bad = [0, 1, 2, 3, 4].filter(i => isDev(eff("c" + i))).map(i => i + 1);
+  return { bad, text: bad.length ? "Отклонение: баллон " + bad.map(n => "№" + n).join(", ") : "Норма: от −2,8 до 2,8" };
+}
 function renderGpa() {
   const g = gpaById(view.id), tab = view.tab || "r";
-  if (formGpa !== g.id) { form = EMPTY_FORM(); editingId = null; formGpa = g.id; }
+  if (formGpa !== g.id) loadForm(g.id);
   const rms = S.remarks.filter(r => r.gpaId === g.id).sort((a, b) => (a.resolved - b.resolved) || b.ts - a.ts);
   const open = rms.filter(r => !r.resolved).length;
+  const list = S.readings.filter(r => r.gpaId === g.id).sort((a, b) => b.ts - a.ts);
   let h = `<header class="top"><button class="icon-btn" data-act="back" aria-label="Назад">${ic("back")}</button>
     <div class="grow"><h1>ГПА-${g.num}</h1><div class="sub">${g.plant.title}</div></div>
     <button class="hdr-btn" data-act="hangar">${ic("box")}Ангар</button></header><main>
-    <div class="tabs" role="tablist"><button role="tab" aria-selected="${tab === "r"}" data-act="tab" data-t="r">Показания</button>
+    <div class="tabs tabs3" role="tablist"><button role="tab" aria-selected="${tab === "r"}" data-act="tab" data-t="r">Показания</button>
+    <button role="tab" aria-selected="${tab === "h"}" data-act="tab" data-t="h">История${list.length ? ` (${list.length})` : ""}</button>
     <button role="tab" aria-selected="${tab === "m"}" data-act="tab" data-t="m">Замечания${open ? ` (${open})` : ""}</button></div>`;
   if (tab === "r") {
-    if (editingId) { const r = S.readings.find(x => x.id === editingId); h += `<div class="edit-banner">Редактирование записи от ${dt(r.ts)}</div>`; }
+    h += `<div class="status"><span id="save-status">${esc(statusText())}</span><button class="link" id="new-rec" data-act="newrec" ${curId ? "" : "hidden"}>Новая запись</button></div>`;
     if (g.plant.cyl) {
-      const bad = form.c.map((v, i) => isDev(parseNum(v)) ? i + 1 : 0).filter(Boolean);
+      const ch = cylHint();
       h += `<section class="card"><div class="card-h"><span class="ico">${ic("fire")}</span>Пожарные баллоны</div>
-        <div class="hint ${bad.length ? "bad" : ""}" id="cyl-hint">${bad.length ? "Отклонение: баллон " + bad.map(n => "№" + n).join(", ") : "Норма: от −2,8 до 2,8"}</div>
+        <div class="hint ${ch.bad.length ? "bad" : ""}" id="cyl-hint">${ch.text}</div>
         <div class="grid2">${[0, 1, 2, 3, 4].map(i => nf(null, "Баллон " + (i + 1), { neg: true, auto: true, idx: i })).join("")}</div></section>`;
     }
     const d = diffVal();
@@ -407,14 +475,12 @@ function renderGpa() {
       <div class="hint">Давление на фильтрах</div>
       <div class="grid3">${nf("pB", "До")}${nf("pA", "После")}<div class="diff"><small>Перепад</small><b class="num" id="diff">${d == null ? "—" : fmt(d)}</b></div></div></section>
       <section class="card"><div class="card-h"><span class="ico">${ic("note")}</span>Примечание</div>
-      <textarea id="f-note" rows="2" data-txt="note" placeholder="Необязательно">${esc(form.note)}</textarea></section>`;
-    const list = S.readings.filter(r => r.gpaId === g.id).sort((a, b) => b.ts - a.ts);
-    h += `<h3 class="sec-title">История записей</h3>`;
+      <textarea id="f-note" rows="2" data-txt="note" placeholder="Необязательно">${esc(form.note)}</textarea></section></main>`;
+  } else if (tab === "h") {
     if (!list.length) h += `<div class="empty">Записей пока нет</div>`;
     for (const r of list) {
       const dev = rDev(r), diff = r.pB != null && r.pA != null ? r.pB - r.pA : null;
-      h += `<article class="rec ${dev ? "devc" : ""} ${r.id === editingId ? "editing" : ""}"><div class="rec-h"><b>${dt(r.ts)}</b>${dev ? `<span class="badge">ОТКЛОНЕНИЕ</span>` : ""}<span class="sp"></span>
-        <button class="icon-btn" data-act="redit" data-id="${r.id}" aria-label="Изменить">${ic("edit")}</button>
+      h += `<article class="rec ${dev ? "devc" : ""}"><div class="rec-h"><b>${dt(r.ts)}</b>${r.id === curId ? `<span class="chip">текущая</span>` : ""}${dev ? `<span class="badge">ОТКЛОНЕНИЕ</span>` : ""}<span class="sp"></span>
         <button class="icon-btn" data-act="rdel" data-id="${r.id}" aria-label="Удалить">${ic("trash")}</button></div>
         ${g.plant.cyl ? `<div class="chips">${r.c.map((v, i) => `<span class="chip num ${isDev(v) ? "bad" : ""}">№${i + 1}: ${dash(v)}</span>`).join("")}</div>` : ""}
         <div class="kv"><span>МСК:</span> уровень <b class="num">${dash(r.mskOil)}</b>, перепад <b class="num">${dash(r.mskDiff)}</b></div>
@@ -422,8 +488,7 @@ function renderGpa() {
         <div class="kv"><span>Фильтры:</span> до <b class="num">${dash(r.pB)}</b> / после <b class="num">${dash(r.pA)}</b> → перепад <b class="num">${dash(diff)}</b></div>
         ${r.note ? `<div class="kv"><span>Примечание:</span> ${esc(r.note)}</div>` : ""}</article>`;
     }
-    h += `</main><div class="savebar"><div class="in">${editingId || formDirty() ? `<button class="btn ghost" data-act="clear">${editingId ? "Отмена" : "Очистить"}</button>` : ""}
-      <button class="btn primary" data-act="save">${ic("save")}${editingId ? "Сохранить изменения" : "Сохранить запись"}</button></div></div>`;
+    h += `</main>`;
   } else {
     if (!rms.length) h += `<div class="empty">Замечаний нет. Нажмите «Замечание», чтобы добавить.</div>`;
     for (const r of rms) {
@@ -434,17 +499,6 @@ function renderGpa() {
   }
   app.innerHTML = h;
   hydrate();
-}
-
-function saveReading() {
-  const g = gpaById(view.id);
-  const c = g.plant.cyl ? form.c.map(parseNum) : [null, null, null, null, null];
-  const r = { c, mskOil: parseNum(form.mskOil), mskDiff: parseNum(form.mskDiff), engOil: parseNum(form.engOil), pB: parseNum(form.pB), pA: parseNum(form.pA), note: form.note.trim() };
-  const any = c.some(v => v != null) || [r.mskOil, r.mskDiff, r.engOil, r.pB, r.pA].some(v => v != null) || r.note;
-  if (!any) { toast("Нет данных для сохранения"); return; }
-  if (editingId) { const old = S.readings.find(x => x.id === editingId); Object.assign(old, r); toast("Запись обновлена"); }
-  else { S.readings.push({ id: uid(), gpaId: g.id, ts: Date.now(), ...r }); toast("Сохранено"); }
-  persist(); form = EMPTY_FORM(); editingId = null; render(); window.scrollTo(0, 0);
 }
 
 // ---------- Экран: ангар ----------
@@ -509,10 +563,7 @@ function viewer(photoId, { onDelete, caption, onCaption } = {}) {
 
 // ---------- Навигация назад ----------
 function back() {
-  if (view.name === "gpa") {
-    if (formDirty()) confirmBox("Есть несохранённые показания. Выйти без сохранения?", "Выйти", () => { form = EMPTY_FORM(); editingId = null; go({ name: "home" }); });
-    else go({ name: "home" });
-  } else if (view.name === "hangar") go({ name: "gpa", id: view.id });
+  if (view.name === "gpa") { if (saveT) commitForm(); formGpa = null; go({ name: "home" }); } else if (view.name === "hangar") go({ name: "gpa", id: view.id });
   else if (view.name === "remark") { if (remarkDirty()) confirmBox("Изменения не сохранены. Выйти без сохранения?", "Выйти", leaveRemark); else leaveRemark(); }
 }
 
@@ -524,24 +575,26 @@ app.addEventListener("click", e => {
     case "open": go({ name: "gpa", id }); break;
     case "a2hs-close": try { localStorage.setItem("a2hs-hidden", "1"); } catch (e) {} render(); break;
     case "back": back(); break;
-    case "hangar": go({ name: "hangar", id: view.id }); break;
-    case "tab": view.tab = el.dataset.t; render(); break;
+    case "hangar": if (saveT) commitForm(); go({ name: "hangar", id: view.id }); break;
+    case "tab": if (saveT) commitForm(); view.tab = el.dataset.t; render(); break;
+    case "newrec": {
+      if (saveT) commitForm();
+      confirmBox("Начать новую запись обхода? Текущая останется в истории.", "Начать", () => {
+        roundStart[view.id] = Date.now() + 1; loadForm(view.id); render(); window.scrollTo(0, 0);
+      });
+      break;
+    }
     case "sign": {
       const f = el.dataset.f, v = getF(f); setF(f, v.startsWith("-") ? v.slice(1) : "-" + v);
-      const inp = document.getElementById("f-" + f); inp.value = getF(f); refreshDerived(f); inp.focus();
+      const inp = document.getElementById("f-" + f); inp.value = getF(f); refreshDerived(f); scheduleSave(); inp.focus();
       const L = inp.value.length; try { inp.setSelectionRange(L, L); } catch (_) {}
       break;
     }
-    case "save": saveReading(); break;
-    case "clear": form = EMPTY_FORM(); editingId = null; render(); break;
-    case "redit": {
-      const r = S.readings.find(x => x.id === id);
-      form = { c: r.c.map(fmt), mskOil: fmt(r.mskOil), mskDiff: fmt(r.mskDiff), engOil: fmt(r.engOil), pB: fmt(r.pB), pA: fmt(r.pA), note: r.note || "" };
-      editingId = id; render(); window.scrollTo(0, 0); break;
-    }
     case "rdel": {
       const r = S.readings.find(x => x.id === id);
-      confirmBox(`Удалить запись от ${dt(r.ts)}?`, "Удалить", () => { S.readings = S.readings.filter(x => x.id !== id); if (editingId === id) { editingId = null; form = EMPTY_FORM(); } persist(); render(); });
+      confirmBox(`Удалить запись от ${dt(r.ts)}?`, "Удалить", () => {
+        S.readings = S.readings.filter(x => x.id !== id); persist(); loadForm(view.id); render();
+      });
       break;
     }
     case "remark": openRemark(id || null); break;
@@ -575,34 +628,27 @@ app.addEventListener("click", e => {
 });
 
 function refreshDerived(fid) {
-  const w = document.querySelector(`[data-wrap="${fid}"]`);
   if (fid[0] === "c" && fid.length === 2) {
-    w.classList.toggle("dev", isDev(parseNum(getF(fid))));
-    const bad = form.c.map((v, i) => isDev(parseNum(v)) ? i + 1 : 0).filter(Boolean), hint = document.getElementById("cyl-hint");
-    if (hint) { hint.textContent = bad.length ? "Отклонение: баллон " + bad.map(n => "№" + n).join(", ") : "Норма: от −2,8 до 2,8"; hint.classList.toggle("bad", !!bad.length); }
+    document.querySelector(`[data-wrap="${fid}"]`).classList.toggle("dev", isDev(eff(fid)));
+    const ch = cylHint(), hint = document.getElementById("cyl-hint");
+    if (hint) { hint.textContent = ch.text; hint.classList.toggle("bad", !!ch.bad.length); }
   }
   if (fid === "pA" || fid === "pB") { const d = diffVal(); document.getElementById("diff").textContent = d == null ? "—" : fmt(d); }
-  // Кнопка «Очистить» появляется после первого ввода
-  const sb = document.querySelector(".savebar .in");
-  if (sb && !editingId) {
-    const has = !!sb.querySelector('[data-act="clear"]');
-    if (formDirty() && !has) sb.insertAdjacentHTML("afterbegin", `<button class="btn ghost" data-act="clear">Очистить</button>`);
-    if (!formDirty() && has) sb.querySelector('[data-act="clear"]').remove();
-  }
 }
 
 let hnoteTimer = null;
 app.addEventListener("input", async e => {
   const t = e.target;
   if (t.dataset.num) {
-    const fid = t.dataset.num, prev = getF(fid);
+    const fid = t.dataset.num, old = getF(fid);
     let v = t.value.replace(/\./g, ",").replace(/[\s−]/g, m => m === "−" ? "-" : "");
     const ok = (t.dataset.neg === "1" ? SIGNED : UNSIGNED).test(v);
-    if (!ok) { t.value = prev; return; }
-    if (t.dataset.auto === "1" && v.length > prev.length && /^-?\d$/.test(v)) v += ",";
+    if (!ok) { t.value = old; return; }
+    if (t.dataset.auto === "1" && v.length > old.length && /^-?\d$/.test(v)) v += ",";
     if (v !== t.value) { t.value = v; try { t.setSelectionRange(v.length, v.length); } catch (_) {} }
-    setF(fid, v); refreshDerived(fid);
-  } else if (t.dataset.txt) { form[t.dataset.txt] = t.value; refreshDerived("note"); }
+    if (v === old) return;
+    setF(fid, v); refreshDerived(fid); scheduleSave();
+  } else if (t.dataset.txt) { form[t.dataset.txt] = t.value; scheduleSave(); }
   else if (t.dataset.hnote) {
     S.hangarNotes[view.id] = t.value; clearTimeout(hnoteTimer); hnoteTimer = setTimeout(persist, 400);
   } else if (t.dataset.rmtext) remarkDraft.text = t.value;
