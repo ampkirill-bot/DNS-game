@@ -303,6 +303,7 @@ private fun ReadingForm(form: List<String>, set: (Int, String) -> Unit) {
                     onValueChange = { set(i, it) },
                     label = "Баллон №${i + 1}",
                     allowNegative = true,
+                    autoComma = true,
                     isError = dev,
                     errorText = if (dev) "ОТКЛОНЕНИЕ (норма от −2,8 до 2,8)" else null,
                     modifier = Modifier.fillMaxWidth(),

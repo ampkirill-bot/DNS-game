@@ -60,7 +60,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -81,6 +83,8 @@ fun app(): App = LocalContext.current.applicationContext as App
  * Поле ввода числа: только цифры, запятая и минус. Кнопка «±» меняет знак
  * (на многих цифровых клавиатурах нет минуса).
  */
+private val singleDigit = Regex("^-?\\d$")
+
 @Composable
 fun NumberField(
     value: String,
@@ -90,10 +94,25 @@ fun NumberField(
     allowNegative: Boolean = false,
     isError: Boolean = false,
     errorText: String? = null,
+    autoComma: Boolean = false,
 ) {
+    // Храним позицию курсора; при внешнем изменении текста курсор ставится в конец.
+    var tfv by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
+    val shown = if (tfv.text == value) tfv else TextFieldValue(value, TextRange(value.length))
     OutlinedTextField(
-        value = value,
-        onValueChange = { raw -> filterNumberInput(raw, allowNegative)?.let(onValueChange) },
+        value = shown,
+        onValueChange = { new ->
+            val filtered = filterNumberInput(new.text, allowNegative) ?: return@OutlinedTextField
+            var text = filtered
+            var sel = new.selection
+            // Автозапятая: после первой цифры сразу ставится «,» (только при вводе, не при стирании).
+            if (autoComma && text.length > shown.text.length && singleDigit.matches(text)) {
+                text += ","
+                sel = TextRange(text.length)
+            }
+            tfv = new.copy(text = text, selection = sel)
+            onValueChange(text)
+        },
         label = { Text(label, maxLines = 1) },
         singleLine = true,
         isError = isError,
