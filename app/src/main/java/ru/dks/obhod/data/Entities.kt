@@ -18,6 +18,8 @@ data class Reading(
     val cyl5: Double?,
     val mskOilLevel: Double?,
     val mskFilterDiff: Double?,
+    val sguLeak1: Double?,
+    val sguLeak2: Double?,
     val engineOilLevel: Double?,
     val pressureBefore: Double?,
     val pressureAfter: Double?,

@@ -21,6 +21,8 @@ data class KnownValues(
     val cyl: List<Double?>,
     val mskOilLevel: Double?,
     val mskFilterDiff: Double?,
+    val sguLeak1: Double?,
+    val sguLeak2: Double?,
     val engineOilLevel: Double?,
     val pressureBefore: Double?,
     val pressureAfter: Double?,
@@ -31,17 +33,20 @@ data class KnownValues(
 
 fun knownValues(newestFirst: List<Reading>): KnownValues {
     val c = arrayOfNulls<Double>(5)
-    var mo: Double? = null; var md: Double? = null; var eo: Double? = null
+    var mo: Double? = null; var md: Double? = null
+    var sgu1: Double? = null; var sgu2: Double? = null; var eo: Double? = null
     var pb: Double? = null; var pa: Double? = null
     for (r in newestFirst) {
         r.cylinders().forEachIndexed { i, v -> if (c[i] == null && v != null) c[i] = v }
         if (mo == null) mo = r.mskOilLevel
         if (md == null) md = r.mskFilterDiff
+        if (sgu1 == null) sgu1 = r.sguLeak1
+        if (sgu2 == null) sgu2 = r.sguLeak2
         if (eo == null) eo = r.engineOilLevel
         if (pb == null) pb = r.pressureBefore
         if (pa == null) pa = r.pressureAfter
     }
-    return KnownValues(c.toList(), mo, md, eo, pb, pa, newestFirst.firstOrNull()?.timestamp)
+    return KnownValues(c.toList(), mo, md, sgu1, sgu2, eo, pb, pa, newestFirst.firstOrNull()?.timestamp)
 }
 
 /** Открытая запись обхода: последняя, созданная меньше часа назад (и не раньше «Новой записи»). */
