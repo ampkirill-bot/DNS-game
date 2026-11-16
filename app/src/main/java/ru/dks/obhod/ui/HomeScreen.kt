@@ -24,8 +24,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -34,6 +36,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -53,6 +56,8 @@ import ru.dks.obhod.data.GpaList
 import ru.dks.obhod.data.Plant
 import ru.dks.obhod.data.Reading
 import ru.dks.obhod.data.knownValues
+import ru.dks.obhod.report.PdfGpaGroup
+import ru.dks.obhod.report.PdfRemark
 import ru.dks.obhod.ui.theme.DeviationRed
 import ru.dks.obhod.ui.theme.OkGreen
 import java.text.SimpleDateFormat
@@ -66,6 +71,9 @@ fun HomeScreen(onOpen: (String) -> Unit) {
     val app = app()
     val all by remember { app.db.readings().all() }.collectAsStateWithLifecycle(emptyList())
     val openRemarks by remember { app.db.remarks().openCounts() }.collectAsStateWithLifecycle(emptyList())
+    val allRemarks by remember { app.db.remarks().all() }.collectAsStateWithLifecycle(emptyList())
+    val allRemarkPhotos by remember { app.db.remarks().allPhotos() }.collectAsStateWithLifecycle(emptyList())
+    val pdfReport = rememberPdfReportController()
     val byGpa = remember(all) { all.groupBy { it.gpaId } }   // внутри — от новых к старым
     val latestMap = byGpa.mapValues { it.value.first() }
     val devMap = remember(byGpa) { byGpa.mapValues { knownValues(it.value).hasDeviation() } }
@@ -80,6 +88,25 @@ fun HomeScreen(onOpen: (String) -> Unit) {
                     Column {
                         Text("Обход ДКС", fontWeight = FontWeight.Bold)
                         Text(today.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodySmall)
+                    }
+                },
+                actions = {
+                    TextButton(
+                        onClick = {
+                            val groups = GpaList.all.mapNotNull { gpa ->
+                                val items = allRemarks.filter { it.gpaId == gpa.id }.map { rm ->
+                                    PdfRemark(rm, allRemarkPhotos.filter { it.remarkId == rm.id }.map { it.path })
+                                }
+                                if (items.isEmpty()) null else PdfGpaGroup(gpa, items)
+                            }
+                            pdfReport.start("Общий отчёт по замечаниям ГПА", groups, "Otchet_zamechaniya_vse_GPA")
+                        },
+                        enabled = !pdfReport.busy,
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onPrimary),
+                    ) {
+                        Icon(Icons.Default.PictureAsPdf, "Общий отчёт PDF")
+                        Spacer(Modifier.width(5.dp))
+                        Text(if (pdfReport.busy) "Создаю…" else "Отчёт PDF")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -174,4 +201,4 @@ private fun GpaTile(gpa: Gpa, last: Reading?, dev: Boolean, openRemarks: Int, on
     }
 }
 
-private fun hhmm(ts: Long) = SimpleDateFormat("HH:mm", Locale("ru")).format(Date(ts))
+private fun hhmm(ts: Long) = SimpleDateFormat("HH:mm", Locale("ru")).format(Date())
