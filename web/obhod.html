@@ -607,14 +607,16 @@ class CanvasReport {
     this.y += gap;
   }
   async groupTitle(text) {
-    await this.ensure(72);
+    // Не оставляем название участка внизу страницы без первого замечания.
+    await this.ensure(612);
     this.ctx.fillStyle = "#d6e4f2";
     this.ctx.fillRect(REPORT_MARGIN, this.y, REPORT_CONTENT_W, 60);
     this.y += 10;
     await this.paragraph(text, { size: 31, bold: true, color: "#1f4e79", line: 42, gap: 18, indent: 16 });
   }
   async remark(item, number) {
-    await this.ensure(90);
+    // Обычное замечание с фото целиком переносим на следующую страницу.
+    await this.ensure(540);
     await this.paragraph(`Замечание №${number} · ${dt(item.ts)}`, { size: 27, bold: true, line: 37, gap: 3 });
     await this.paragraph(item.resolved ? "Статус: УСТРАНЕНО" : "Статус: ОТКРЫТО", {
       size: 23, bold: true, color: item.resolved ? "#2e7d32" : "#d32f2f", line: 32, gap: 10,
@@ -641,7 +643,8 @@ class CanvasReport {
       const img = await new Promise((resolve, reject) => {
         const im = new Image(); im.onload = () => resolve(im); im.onerror = reject; im.src = url;
       });
-      const scale = Math.min(REPORT_CONTENT_W / img.naturalWidth, 650 / img.naturalHeight, 1);
+      // Компактное фото: на первой странице помещаются минимум два замечания с фото.
+      const scale = Math.min(REPORT_CONTENT_W / img.naturalWidth, 320 / img.naturalHeight, 1);
       const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
       await this.ensure(h + 58);
       this.ctx.drawImage(img, REPORT_MARGIN, this.y, w, h);
