@@ -201,4 +201,4 @@ private fun GpaTile(gpa: Gpa, last: Reading?, dev: Boolean, openRemarks: Int, on
     }
 }
 
-private fun hhmm(ts: Long) = SimpleDateFormat("HH:mm", Locale("ru")).format(Date())
+private fun hhmm(ts: Long) = SimpleDateFormat("HH:mm", Locale("ru")).format(Date(ts))
