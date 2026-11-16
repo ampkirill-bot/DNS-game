@@ -156,7 +156,8 @@ object RemarkPdfExporter {
         }
 
         fun groupTitle(text: String) {
-            ensure(43f)
+            // Не оставляем название участка внизу страницы без первого замечания.
+            ensure(313f)
             val c = canvas!!
             c.drawRoundRect(RectF(MARGIN, y, PAGE_W - MARGIN, y + 32f), 5f, 5f, Paint().apply {
                 color = Color.rgb(214, 228, 242)
@@ -167,7 +168,8 @@ object RemarkPdfExporter {
 
         fun remark(item: PdfRemark, number: Int) {
             val rm = item.remark
-            ensure(44f)
+            // Обычное замечание с фото целиком переносим на следующую страницу.
+            ensure(270f)
             paragraph(
                 "Замечание №$number · ${format(rm.timestamp)}",
                 paint(12f, bold = true), 17f, 1f,
@@ -207,7 +209,8 @@ object RemarkPdfExporter {
                 return
             }
             try {
-                val scale = min(CONTENT_W / bitmap.width, min(330f / bitmap.height, 1f))
+                // Компактное фото: на первой странице помещаются минимум два замечания с фото.
+                val scale = min(CONTENT_W / bitmap.width, min(160f / bitmap.height, 1f))
                 val w = bitmap.width * scale
                 val h = bitmap.height * scale
                 ensure(h + 25f)
