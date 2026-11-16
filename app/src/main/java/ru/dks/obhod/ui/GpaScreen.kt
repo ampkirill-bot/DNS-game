@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Opacity
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -81,6 +82,8 @@ import ru.dks.obhod.data.hasDeviation
 import ru.dks.obhod.data.isCylinderDeviation
 import ru.dks.obhod.data.knownValues
 import ru.dks.obhod.data.openRecord
+import ru.dks.obhod.report.PdfGpaGroup
+import ru.dks.obhod.report.PdfRemark
 import ru.dks.obhod.ui.theme.DeviationRed
 import ru.dks.obhod.ui.theme.OkGreen
 import ru.dks.obhod.util.formatDateTime
@@ -155,6 +158,7 @@ fun GpaScreen(
     var confirmNew by remember { mutableStateOf(false) }
     var toDelete by remember { mutableStateOf<Reading?>(null) }
     var viewPhoto by remember { mutableStateOf<String?>(null) }
+    val pdfReport = rememberPdfReportController()
     val mutex = remember { Mutex() }
 
     // Первая загрузка: в ячейки — текущая запись обхода (если моложе часа).
@@ -310,6 +314,26 @@ fun GpaScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
+                    item {
+                        FilledTonalButton(
+                            onClick = {
+                                val items = remarks.map { rm ->
+                                    PdfRemark(rm, remarkPhotos.filter { it.remarkId == rm.id }.map { it.path })
+                                }
+                                pdfReport.start(
+                                    title = "Отчёт по замечаниям · ${gpa.fullTitle}",
+                                    groups = listOf(PdfGpaGroup(gpa, items)),
+                                    filePrefix = "Otchet_zamechaniya_${gpa.id}",
+                                )
+                            },
+                            enabled = remarks.isNotEmpty() && !pdfReport.busy,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Default.PictureAsPdf, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (pdfReport.busy) "Создаю PDF…" else "Создать отчёт PDF")
+                        }
+                    }
                     if (remarks.isEmpty()) item {
                         Text("Замечаний нет. Нажмите «Замечание», чтобы добавить.", style = MaterialTheme.typography.bodyMedium)
                     }
