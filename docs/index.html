@@ -78,6 +78,7 @@ header.top .grow { flex: 1; min-width: 0; }
 .icon-btn { background: transparent; border: 0; width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; color: inherit; flex: none; }
 .icon-btn:active { background: rgba(255,255,255,.15); }
 .hdr-btn { background: var(--amber); color: #2b1d00; border: 0; border-radius: 10px; padding: 9px 14px; font-weight: 700; display: flex; gap: 6px; align-items: center; flex: none; }
+.btn:disabled, .hdr-btn:disabled { opacity: .55; cursor: default; }
 svg.i { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 14px 120px; max-width: 760px; margin: 0 auto; display: grid; gap: 14px; }
@@ -222,6 +223,7 @@ const I = {
   drop: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
   gauge: '<path d="M12 14l4-4"/><path d="M3.5 18a9 9 0 1 1 17 0"/>',
   note: '<path d="M4 4h16v12l-4 4H4z"/><path d="M8 9h8M8 13h5"/>',
+  report: '<path d="M6 2h9l4 4v16H6z"/><path d="M14 2v6h5M9 13h6M9 17h6"/>',
   save: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7M8 21v-7h8v7"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
@@ -309,15 +311,16 @@ async function addFiles(files) {
 }
 
 // ---------- Состояние интерфейса ----------
-const EMPTY_FORM = () => ({ c: ["", "", "", "", ""], mskOil: "", mskDiff: "", engOil: "", pB: "", pA: "", note: "" });
+const EMPTY_FORM = () => ({ c: ["", "", "", "", ""], mskOil: "", mskDiff: "", sgu1: "", sgu2: "", engOil: "", pB: "", pA: "", note: "" });
 let view = { name: "home" };
 let form = EMPTY_FORM(), curId = null, formGpa = null, saveT = null;
 const ROUND_MS = 60 * 60 * 1000;          // ввод в течение часа — одна запись обхода
 const roundStart = {};                    // gpaId → время нажатия «Новая запись»
 let remarkDraft = null;
+let reportBusy = false;
 const app = document.getElementById("app");
 
-const NUM_KEYS = ["mskOil", "mskDiff", "engOil", "pB", "pA"];
+const NUM_KEYS = ["mskOil", "mskDiff", "sgu1", "sgu2", "engOil", "pB", "pA"];
 const latestFor = id => S.readings.filter(r => r.gpaId === id).sort((a, b) => b.ts - a.ts)[0];
 const rDev = r => r && r.c && r.c.some(isDev);
 // Открытая (текущая) запись обхода: последняя, созданная меньше часа назад.
@@ -339,7 +342,7 @@ const gpaDev = gid => knownValues(gid, null).c.some(isDev);
 let prev = { c: [] };   // серые подсказки на экране ГПА
 function loadForm(gid) {
   const o = openRecord(gid); curId = o ? o.id : null; formGpa = gid;
-  form = o ? { c: o.c.map(fmt), mskOil: fmt(o.mskOil), mskDiff: fmt(o.mskDiff), engOil: fmt(o.engOil), pB: fmt(o.pB), pA: fmt(o.pA), note: o.note || "" } : EMPTY_FORM();
+  form = o ? { c: o.c.map(fmt), mskOil: fmt(o.mskOil), mskDiff: fmt(o.mskDiff), sgu1: fmt(o.sgu1), sgu2: fmt(o.sgu2), engOil: fmt(o.engOil), pB: fmt(o.pB), pA: fmt(o.pA), note: o.note || "" } : EMPTY_FORM();
   prev = knownValues(gid, curId);
 }
 // Автосохранение
@@ -393,7 +396,8 @@ function showA2hs() {
 // ---------- Экран: главная ----------
 function renderHome() {
   const day = new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
-  let h = `<header class="top"><div class="grow"><h1>Обход ДКС</h1><div class="sub">${esc(day[0].toUpperCase() + day.slice(1))}</div></div></header><main>`;
+  let h = `<header class="top"><div class="grow"><h1>Обход ДКС</h1><div class="sub">${esc(day[0].toUpperCase() + day.slice(1))}</div></div>
+    <button class="hdr-btn" data-act="global-report" ${reportBusy ? "disabled" : ""}>${ic("report")}${reportBusy ? "Создаю…" : "Отчёт PDF"}</button></header><main>`;
   if (showA2hs()) h += `<div class="a2hs"><span>Чтобы работало без интернета: «Поделиться» → «На экран „Домой“»</span><button class="icon-btn" data-act="a2hs-close" aria-label="Скрыть">${ic("x")}</button></div>`;
   if (!storageOk) h += `<div class="warn">Браузер не даёт сохранять данные (возможно, включён частный режим). Записи пропадут после закрытия страницы.</div>`;
   for (const p of PLANTS) {
@@ -456,11 +460,12 @@ function renderGpa() {
     }
     const d = diffVal();
     h += `<section class="card"><div class="card-h"><span class="ico">${ic("drop")}</span>Компрессор (МСК)</div>
-      <div class="grid2">${nf("mskOil", "Уровень масла")}${nf("mskDiff", "Перепад на фильтрах", { neg: true })}</div></section>
+      <div class="grid2">${nf("mskOil", "Уровень масла")}${nf("mskDiff", "Перепад на фильтрах", { neg: true })}</div>
+      ${g.plant.cyl ? `<div class="grid2">${nf("sgu1", "Утечки СГУ-1")}${nf("sgu2", "Утечки СГУ-2")}</div>` : ""}</section>
       <section class="card"><div class="card-h"><span class="ico">${ic("gauge")}</span>Двигатель</div>
       ${nf("engOil", "Уровень в маслобаке двигателя")}
-      <div class="hint">Давление на фильтрах</div>
-      <div class="grid3">${nf("pB", "До")}${nf("pA", "После")}<div class="diff"><small>Перепад</small><b class="num" id="diff">${d == null ? "—" : fmt(d)}</b></div></div></section>
+      ${g.plant.cyl ? `<div class="hint">Давление на фильтрах</div>
+      <div class="grid3">${nf("pB", "До")}${nf("pA", "После")}<div class="diff"><small>Перепад</small><b class="num" id="diff">${d == null ? "—" : fmt(d)}</b></div></div>` : ""}</section>
       <section class="card"><div class="card-h"><span class="ico">${ic("note")}</span>Примечание</div>
       <textarea id="f-note" rows="2" data-txt="note" placeholder="Необязательно">${esc(form.note)}</textarea></section></main>`;
   } else if (tab === "h") {
@@ -471,12 +476,14 @@ function renderGpa() {
         <button class="icon-btn" data-act="rdel" data-id="${r.id}" aria-label="Удалить">${ic("trash")}</button></div>
         ${g.plant.cyl ? `<div class="chips">${r.c.map((v, i) => `<span class="chip num ${isDev(v) ? "bad" : ""}">№${i + 1}: ${dash(v)}</span>`).join("")}</div>` : ""}
         <div class="kv"><span>МСК:</span> уровень <b class="num">${dash(r.mskOil)}</b>, перепад <b class="num">${dash(r.mskDiff)}</b></div>
+        ${g.plant.cyl ? `<div class="kv"><span>Утечки СГУ:</span> №1 <b class="num">${dash(r.sgu1)}</b>, №2 <b class="num">${dash(r.sgu2)}</b></div>` : ""}
         <div class="kv"><span>Двигатель:</span> уровень <b class="num">${dash(r.engOil)}</b></div>
-        <div class="kv"><span>Фильтры:</span> до <b class="num">${dash(r.pB)}</b> / после <b class="num">${dash(r.pA)}</b> → перепад <b class="num">${dash(diff)}</b></div>
+        ${g.plant.cyl ? `<div class="kv"><span>Фильтры:</span> до <b class="num">${dash(r.pB)}</b> / после <b class="num">${dash(r.pA)}</b> → перепад <b class="num">${dash(diff)}</b></div>` : ""}
         ${r.note ? `<div class="kv"><span>Примечание:</span> ${esc(r.note)}</div>` : ""}</article>`;
     }
     h += `</main>`;
   } else {
+    h += `<button class="btn tonal" data-act="gpa-report" ${!rms.length || reportBusy ? "disabled" : ""}>${ic("report")}${reportBusy ? "Создаю PDF…" : "Создать отчёт PDF"}</button>`;
     if (!rms.length) h += `<div class="empty">Замечаний нет. Нажмите «Замечание», чтобы добавить.</div>`;
     for (const r of rms) {
       h += `<button class="remark ${r.resolved ? "done" : ""}" data-act="remark" data-id="${r.id}"><span class="rh">${dt(r.ts)}<span class="st">${r.resolved ? "Устранено" : "Открыто"}</span></span>
@@ -548,6 +555,207 @@ function viewer(photoId, { onDelete, caption, onCaption } = {}) {
   document.body.appendChild(o); hydrate(o);
 }
 
+// ---------- PDF-отчёты по замечаниям (полностью офлайн) ----------
+// Страницы сначала рисуются на canvas: так русский текст не требует встраивания шрифтов в PDF.
+const REPORT_W = 1240, REPORT_H = 1754, REPORT_MARGIN = 82, REPORT_BOTTOM = 1640;
+const REPORT_CONTENT_W = REPORT_W - REPORT_MARGIN * 2;
+
+class CanvasReport {
+  constructor() { this.pages = []; this.pageNo = 0; this.canvas = null; this.y = REPORT_MARGIN; }
+  async startPage() {
+    this.pageNo++;
+    this.canvas = document.createElement("canvas");
+    this.canvas.width = REPORT_W; this.canvas.height = REPORT_H;
+    this.ctx = this.canvas.getContext("2d");
+    this.ctx.fillStyle = "#fff"; this.ctx.fillRect(0, 0, REPORT_W, REPORT_H);
+    this.y = REPORT_MARGIN;
+    if (this.pageNo > 1) {
+      this.ctx.font = '20px "IBM Plex Sans", sans-serif'; this.ctx.fillStyle = "#6b7785";
+      this.ctx.fillText("Отчёт по замечаниям · продолжение", REPORT_MARGIN, this.y + 20);
+      this.y += 46;
+    }
+  }
+  async flushPage() {
+    if (!this.canvas) return;
+    this.ctx.font = '20px "IBM Plex Sans", sans-serif'; this.ctx.fillStyle = "#6b7785";
+    this.ctx.fillText(`Обход ДКС · стр. ${this.pageNo}`, REPORT_MARGIN, REPORT_H - 42);
+    const canvas = this.canvas;
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", .9));
+    if (!blob) throw new Error("Не удалось подготовить страницу PDF");
+    this.pages.push({ blob, width: REPORT_W, height: REPORT_H });
+    this.canvas.width = this.canvas.height = 1;
+    this.canvas = null; this.ctx = null;
+  }
+  async ensure(height) {
+    if (!this.canvas) await this.startPage();
+    if (this.y + height > REPORT_BOTTOM && this.y > REPORT_MARGIN + 1) {
+      await this.flushPage(); await this.startPage();
+    }
+  }
+  async paragraph(text, { size = 24, bold = false, color = "#16212c", line = null, gap = 12, indent = 0 } = {}) {
+    const lineHeight = line || Math.round(size * 1.4);
+    const font = `${bold ? "700" : "400"} ${size}px "IBM Plex Sans", sans-serif`;
+    for (const raw of String(text).split("\n")) {
+      let rest = raw.trim();
+      if (!rest) { await this.ensure(lineHeight); this.y += lineHeight; continue; }
+      while (rest) {
+        await this.ensure(lineHeight);
+        this.ctx.font = font; this.ctx.fillStyle = color;
+        const available = REPORT_CONTENT_W - indent;
+        let lo = 1, hi = rest.length;
+        while (lo < hi) {
+          const mid = Math.ceil((lo + hi) / 2);
+          if (this.ctx.measureText(rest.slice(0, mid)).width <= available) lo = mid; else hi = mid - 1;
+        }
+        let count = lo;
+        if (count < rest.length) {
+          const space = rest.lastIndexOf(" ", count);
+          if (space > 0) count = space;
+        }
+        this.ctx.fillText(rest.slice(0, count).trimEnd(), REPORT_MARGIN + indent, this.y + size);
+        this.y += lineHeight;
+        rest = rest.slice(count).trimStart();
+      }
+    }
+    this.y += gap;
+  }
+  async groupTitle(text) {
+    await this.ensure(72);
+    this.ctx.fillStyle = "#d6e4f2";
+    this.ctx.fillRect(REPORT_MARGIN, this.y, REPORT_CONTENT_W, 60);
+    this.y += 10;
+    await this.paragraph(text, { size: 31, bold: true, color: "#1f4e79", line: 42, gap: 18, indent: 16 });
+  }
+  async remark(item, number) {
+    await this.ensure(90);
+    await this.paragraph(`Замечание №${number} · ${dt(item.ts)}`, { size: 27, bold: true, line: 37, gap: 3 });
+    await this.paragraph(item.resolved ? "Статус: УСТРАНЕНО" : "Статус: ОТКРЫТО", {
+      size: 23, bold: true, color: item.resolved ? "#2e7d32" : "#d32f2f", line: 32, gap: 10,
+    });
+    await this.paragraph(`Пояснение: ${item.text.trim() || "без описания"}`, { size: 25, line: 35, gap: 16 });
+    if (!item.photos.length) {
+      await this.paragraph("Фотографии отсутствуют.", { size: 22, color: "#6b7785", line: 31, gap: 14 });
+    } else {
+      for (let i = 0; i < item.photos.length; i++) await this.photo(item.photos[i], i + 1, item.photos.length);
+    }
+    await this.ensure(28);
+    this.ctx.strokeStyle = "#cfd8e2"; this.ctx.lineWidth = 2;
+    this.ctx.beginPath(); this.ctx.moveTo(REPORT_MARGIN, this.y); this.ctx.lineTo(REPORT_W - REPORT_MARGIN, this.y); this.ctx.stroke();
+    this.y += 28;
+  }
+  async photo(photoId, number, total) {
+    const blob = await getPhoto(photoId);
+    if (!blob) {
+      await this.paragraph(`Фото ${number} из ${total}: файл не найден.`, { size: 22, color: "#6b7785", gap: 14 });
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const im = new Image(); im.onload = () => resolve(im); im.onerror = reject; im.src = url;
+      });
+      const scale = Math.min(REPORT_CONTENT_W / img.naturalWidth, 650 / img.naturalHeight, 1);
+      const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
+      await this.ensure(h + 58);
+      this.ctx.drawImage(img, REPORT_MARGIN, this.y, w, h);
+      this.ctx.strokeStyle = "#cfd8e2"; this.ctx.lineWidth = 2; this.ctx.strokeRect(REPORT_MARGIN, this.y, w, h);
+      this.y += h + 8;
+      await this.paragraph(`Фото ${number} из ${total}`, { size: 20, color: "#6b7785", line: 28, gap: 16 });
+    } catch (e) {
+      await this.paragraph(`Фото ${number} из ${total}: не удалось открыть.`, { size: 22, color: "#6b7785", gap: 14 });
+    } finally { URL.revokeObjectURL(url); }
+  }
+  async finish() { await this.flushPage(); return this.pages; }
+}
+
+function pdfBytes(text) { return Uint8Array.from(text, c => c.charCodeAt(0) & 255); }
+function pdfTitleHex(text) {
+  const units = [0xfe, 0xff];
+  for (let i = 0; i < text.length; i++) { const c = text.charCodeAt(i); units.push(c >> 8, c & 255); }
+  return units.map(v => v.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+// PDF с JPEG-страницами: изображения вставляются напрямую, без пересжатия и внешних библиотек.
+async function buildImagePdf(pages, title) {
+  const chunks = [], offsets = [];
+  let length = 0;
+  const push = data => {
+    const bytes = typeof data === "string" ? pdfBytes(data) : data;
+    chunks.push(bytes); length += bytes.length;
+  };
+  const object = (id, dictionary, stream = null) => {
+    offsets[id] = length;
+    push(`${id} 0 obj\n${dictionary}\n`);
+    if (stream) { push("stream\n"); push(stream); push("\nendstream\n"); }
+    push("endobj\n");
+  };
+  const pageId = i => 3 + i * 3, infoId = 3 + pages.length * 3;
+  push("%PDF-1.4\n%"); push(Uint8Array.from([0xe2, 0xe3, 0xcf, 0xd3])); push("\n");
+  object(1, "<< /Type /Catalog /Pages 2 0 R >>");
+  object(2, `<< /Type /Pages /Count ${pages.length} /Kids [${pages.map((_, i) => `${pageId(i)} 0 R`).join(" ")}] >>`);
+  for (let i = 0; i < pages.length; i++) {
+    const p = pages[i], pid = pageId(i), cid = pid + 1, iid = pid + 2;
+    object(pid, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im0 ${iid} 0 R >> >> /Contents ${cid} 0 R >>`);
+    const content = pdfBytes("q\n595.28 0 0 841.89 0 0 cm\n/Im0 Do\nQ");
+    object(cid, `<< /Length ${content.length} >>`, content);
+    const jpeg = new Uint8Array(await p.blob.arrayBuffer());
+    object(iid, `<< /Type /XObject /Subtype /Image /Width ${p.width} /Height ${p.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>`, jpeg);
+  }
+  object(infoId, `<< /Producer (DksObhod) /Title <${pdfTitleHex(title)}> >>`);
+  const xref = length;
+  push(`xref\n0 ${infoId + 1}\n0000000000 65535 f \n`);
+  for (let i = 1; i <= infoId; i++) push(`${String(offsets[i]).padStart(10, "0")} 00000 n \n`);
+  push(`trailer\n<< /Size ${infoId + 1} /Root 1 0 R /Info ${infoId} 0 R >>\nstartxref\n${xref}\n%%EOF`);
+  return new Blob(chunks, { type: "application/pdf" });
+}
+
+async function makeRemarksPdf(title, groups) {
+  const report = new CanvasReport();
+  const all = groups.flatMap(g => g.remarks), open = all.filter(r => !r.resolved).length;
+  await report.paragraph(title, { size: 46, bold: true, color: "#1f4e79", line: 60, gap: 10 });
+  await report.paragraph(`Сформирован: ${dt(Date.now())}`, { size: 22, color: "#5b6b7b", line: 31, gap: 4 });
+  await report.paragraph(`Замечаний: ${all.length} · открыто: ${open} · устранено: ${all.length - open}`, {
+    size: 25, bold: true, line: 35, gap: 24,
+  });
+  for (const group of groups) {
+    if (!group.remarks.length) continue;
+    await report.groupTitle(`${group.gpa.plant.title} · ГПА-${group.gpa.num}`);
+    for (let i = 0; i < group.remarks.length; i++) await report.remark(group.remarks[i], i + 1);
+  }
+  return buildImagePdf(await report.finish(), title);
+}
+
+async function deliverPdf(blob, filename, title) {
+  const file = new File([blob], filename, { type: "application/pdf" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title }); return; }
+    catch (e) { if (e && e.name === "AbortError") return; }
+  }
+  const url = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = url; a.download = filename; a.style.display = "none";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  toast("PDF создан. Откройте файл в загрузках.");
+}
+
+async function createRemarksReport(globalReport) {
+  if (reportBusy) return;
+  const groups = (globalReport ? GPAS : [gpaById(view.id)]).map(gpa => ({
+    gpa,
+    remarks: S.remarks.filter(r => r.gpaId === gpa.id).sort((a, b) => (a.resolved - b.resolved) || b.ts - a.ts),
+  })).filter(g => g.remarks.length);
+  if (!groups.length) { toast("Нет замечаний для отчёта"); return; }
+  reportBusy = true; render(); toast("Создаю PDF…");
+  const title = globalReport ? "Общий отчёт по замечаниям ГПА" : `Отчёт по замечаниям · ${groups[0].gpa.plant.title} · ГПА-${groups[0].gpa.num}`;
+  try {
+    const blob = await makeRemarksPdf(title, groups);
+    const d = new Date(), stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    const prefix = globalReport ? "Otchet_zamechaniya_vse_GPA" : `Otchet_zamechaniya_${groups[0].gpa.id}`;
+    await deliverPdf(blob, `${prefix}_${stamp}.pdf`, title);
+  } catch (e) {
+    console.error(e); toast("Не удалось создать PDF. Попробуйте ещё раз.");
+  } finally { reportBusy = false; render(); }
+}
+
 // ---------- Навигация назад ----------
 function back() {
   if (view.name === "gpa") { if (saveT) commitForm(); formGpa = null; go({ name: "home" }); } else if (view.name === "hangar") go({ name: "gpa", id: view.id });
@@ -560,6 +768,8 @@ app.addEventListener("click", e => {
   const a = el.dataset.act, id = el.dataset.id;
   switch (a) {
     case "open": go({ name: "gpa", id }); break;
+    case "global-report": createRemarksReport(true); break;
+    case "gpa-report": createRemarksReport(false); break;
     case "a2hs-close": try { localStorage.setItem("a2hs-hidden", "1"); } catch (e) {} render(); break;
     case "back": back(); break;
     case "hangar": if (saveT) commitForm(); go({ name: "hangar", id: view.id }); break;
