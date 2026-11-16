@@ -296,7 +296,7 @@ async function addFiles(files) {
 }
 
 // ---------- Состояние интерфейса ----------
-const EMPTY_FORM = () => ({ c: ["", "", "", "", ""], mskOil: "", mskDiff: "", engOil: "", pB: "", pA: "", note: "" });
+const EMPTY_FORM = () => ({ c: ["", "", "", "", ""], mskOil: "", mskDiff: "", sgu1: "", sgu2: "", engOil: "", pB: "", pA: "", note: "" });
 let view = { name: "home" };
 let form = EMPTY_FORM(), curId = null, formGpa = null, saveT = null;
 const ROUND_MS = 60 * 60 * 1000;          // ввод в течение часа — одна запись обхода
@@ -304,7 +304,7 @@ const roundStart = {};                    // gpaId → время нажатия
 let remarkDraft = null;
 const app = document.getElementById("app");
 
-const NUM_KEYS = ["mskOil", "mskDiff", "engOil", "pB", "pA"];
+const NUM_KEYS = ["mskOil", "mskDiff", "sgu1", "sgu2", "engOil", "pB", "pA"];
 const latestFor = id => S.readings.filter(r => r.gpaId === id).sort((a, b) => b.ts - a.ts)[0];
 const rDev = r => r && r.c && r.c.some(isDev);
 // Открытая (текущая) запись обхода: последняя, созданная меньше часа назад.
@@ -326,7 +326,7 @@ const gpaDev = gid => knownValues(gid, null).c.some(isDev);
 let prev = { c: [] };   // серые подсказки на экране ГПА
 function loadForm(gid) {
   const o = openRecord(gid); curId = o ? o.id : null; formGpa = gid;
-  form = o ? { c: o.c.map(fmt), mskOil: fmt(o.mskOil), mskDiff: fmt(o.mskDiff), engOil: fmt(o.engOil), pB: fmt(o.pB), pA: fmt(o.pA), note: o.note || "" } : EMPTY_FORM();
+  form = o ? { c: o.c.map(fmt), mskOil: fmt(o.mskOil), mskDiff: fmt(o.mskDiff), sgu1: fmt(o.sgu1), sgu2: fmt(o.sgu2), engOil: fmt(o.engOil), pB: fmt(o.pB), pA: fmt(o.pA), note: o.note || "" } : EMPTY_FORM();
   prev = knownValues(gid, curId);
 }
 // Автосохранение
@@ -443,11 +443,12 @@ function renderGpa() {
     }
     const d = diffVal();
     h += `<section class="card"><div class="card-h"><span class="ico">${ic("drop")}</span>Компрессор (МСК)</div>
-      <div class="grid2">${nf("mskOil", "Уровень масла")}${nf("mskDiff", "Перепад на фильтрах", { neg: true })}</div></section>
+      <div class="grid2">${nf("mskOil", "Уровень масла")}${nf("mskDiff", "Перепад на фильтрах", { neg: true })}</div>
+      ${g.plant.cyl ? `<div class="grid2">${nf("sgu1", "Утечки СГУ-1")}${nf("sgu2", "Утечки СГУ-2")}</div>` : ""}</section>
       <section class="card"><div class="card-h"><span class="ico">${ic("gauge")}</span>Двигатель</div>
       ${nf("engOil", "Уровень в маслобаке двигателя")}
-      <div class="hint">Давление на фильтрах</div>
-      <div class="grid3">${nf("pB", "До")}${nf("pA", "После")}<div class="diff"><small>Перепад</small><b class="num" id="diff">${d == null ? "—" : fmt(d)}</b></div></div></section>
+      ${g.plant.cyl ? `<div class="hint">Давление на фильтрах</div>
+      <div class="grid3">${nf("pB", "До")}${nf("pA", "После")}<div class="diff"><small>Перепад</small><b class="num" id="diff">${d == null ? "—" : fmt(d)}</b></div></div>` : ""}</section>
       <section class="card"><div class="card-h"><span class="ico">${ic("note")}</span>Примечание</div>
       <textarea id="f-note" rows="2" data-txt="note" placeholder="Необязательно">${esc(form.note)}</textarea></section></main>`;
   } else if (tab === "h") {
@@ -458,8 +459,9 @@ function renderGpa() {
         <button class="icon-btn" data-act="rdel" data-id="${r.id}" aria-label="Удалить">${ic("trash")}</button></div>
         ${g.plant.cyl ? `<div class="chips">${r.c.map((v, i) => `<span class="chip num ${isDev(v) ? "bad" : ""}">№${i + 1}: ${dash(v)}</span>`).join("")}</div>` : ""}
         <div class="kv"><span>МСК:</span> уровень <b class="num">${dash(r.mskOil)}</b>, перепад <b class="num">${dash(r.mskDiff)}</b></div>
+        ${g.plant.cyl ? `<div class="kv"><span>Утечки СГУ:</span> №1 <b class="num">${dash(r.sgu1)}</b>, №2 <b class="num">${dash(r.sgu2)}</b></div>` : ""}
         <div class="kv"><span>Двигатель:</span> уровень <b class="num">${dash(r.engOil)}</b></div>
-        <div class="kv"><span>Фильтры:</span> до <b class="num">${dash(r.pB)}</b> / после <b class="num">${dash(r.pA)}</b> → перепад <b class="num">${dash(diff)}</b></div>
+        ${g.plant.cyl ? `<div class="kv"><span>Фильтры:</span> до <b class="num">${dash(r.pB)}</b> / после <b class="num">${dash(r.pA)}</b> → перепад <b class="num">${dash(diff)}</b></div>` : ""}
         ${r.note ? `<div class="kv"><span>Примечание:</span> ${esc(r.note)}</div>` : ""}</article>`;
     }
     h += `</main>`;
