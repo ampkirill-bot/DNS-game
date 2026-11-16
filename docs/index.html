@@ -502,7 +502,7 @@ function renderHangar() {
   app.innerHTML = `<header class="top"><button class="icon-btn" data-act="back" aria-label="Назад">${ic("back")}</button>
     <div class="grow"><h1>Ангар · ГПА-${g.num}</h1><div class="sub">${g.plant.title}</div></div></header><main>
     <section class="card"><div class="card-h"><span class="ico">${ic("note")}</span>Что лежит в ангаре</div>
-    <textarea id="hangar-note" rows="4" data-hnote="1" placeholder="Например: 2 фильтра МСК, ветошь, ключи…">${esc(S.hangarNotes[g.id] || "")}</textarea>
+    <textarea id="hangar-note" rows="4" data-hnote="1" placeholder="Например: 2 фильтры МСК, ветошь, ключи…">${esc(S.hangarNotes[g.id] || "")}</textarea>
     <span class="hint">Сохраняется автоматически</span></section>
     <div class="row">${photoButtons("hangar")}</div>
     <h3 class="sec-title">${ph.length ? "Фото: " + ph.length : "Фото пока нет"}</h3>
@@ -620,14 +620,16 @@ class CanvasReport {
     this.y += gap;
   }
   async groupTitle(text) {
-    await this.ensure(72);
+    // Не оставляем название участка внизу страницы без первого замечания.
+    await this.ensure(612);
     this.ctx.fillStyle = "#d6e4f2";
     this.ctx.fillRect(REPORT_MARGIN, this.y, REPORT_CONTENT_W, 60);
     this.y += 10;
     await this.paragraph(text, { size: 31, bold: true, color: "#1f4e79", line: 42, gap: 18, indent: 16 });
   }
   async remark(item, number) {
-    await this.ensure(90);
+    // Обычное замечание с фото целиком переносим на следующую страницу.
+    await this.ensure(540);
     await this.paragraph(`Замечание №${number} · ${dt(item.ts)}`, { size: 27, bold: true, line: 37, gap: 3 });
     await this.paragraph(item.resolved ? "Статус: УСТРАНЕНО" : "Статус: ОТКРЫТО", {
       size: 23, bold: true, color: item.resolved ? "#2e7d32" : "#d32f2f", line: 32, gap: 10,
@@ -654,7 +656,8 @@ class CanvasReport {
       const img = await new Promise((resolve, reject) => {
         const im = new Image(); im.onload = () => resolve(im); im.onerror = reject; im.src = url;
       });
-      const scale = Math.min(REPORT_CONTENT_W / img.naturalWidth, 650 / img.naturalHeight, 1);
+      // Компактное фото: на первой странице помещаются минимум два замечания с фото.
+      const scale = Math.min(REPORT_CONTENT_W / img.naturalWidth, 320 / img.naturalHeight, 1);
       const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
       await this.ensure(h + 58);
       this.ctx.drawImage(img, REPORT_MARGIN, this.y, w, h);
