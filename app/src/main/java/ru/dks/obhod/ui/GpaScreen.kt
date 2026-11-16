@@ -94,17 +94,20 @@ import java.util.Locale
 // Индексы полей формы
 private const val F_MSK_OIL = 5
 private const val F_MSK_DIFF = 6
-private const val F_ENG_OIL = 7
-private const val F_P_BEFORE = 8
-private const val F_P_AFTER = 9
-private const val F_NOTE = 10
-private const val FIELD_COUNT = 11
+private const val F_SGU_LEAK_1 = 7
+private const val F_SGU_LEAK_2 = 8
+private const val F_ENG_OIL = 9
+private const val F_P_BEFORE = 10
+private const val F_P_AFTER = 11
+private const val F_NOTE = 12
+private const val FIELD_COUNT = 13
 
 private val formSaver = listSaver<List<String>, String>(save = { it }, restore = { it })
 
 private fun Reading.toForm(): List<String> =
     cylinders().map { formatNumber(it) } + listOf(
         formatNumber(mskOilLevel), formatNumber(mskFilterDiff),
+        formatNumber(sguLeak1), formatNumber(sguLeak2),
         formatNumber(engineOilLevel), formatNumber(pressureBefore), formatNumber(pressureAfter),
         note,
     )
@@ -114,6 +117,8 @@ private fun KnownValues.at(i: Int): Double? = when (i) {
     in 0..4 -> cyl[i]
     F_MSK_OIL -> mskOilLevel
     F_MSK_DIFF -> mskFilterDiff
+    F_SGU_LEAK_1 -> sguLeak1
+    F_SGU_LEAK_2 -> sguLeak2
     F_ENG_OIL -> engineOilLevel
     F_P_BEFORE -> pressureBefore
     F_P_AFTER -> pressureAfter
@@ -174,6 +179,7 @@ fun GpaScreen(
                     gpaId = gpaId, timestamp = 0,
                     cyl1 = n[0], cyl2 = n[1], cyl3 = n[2], cyl4 = n[3], cyl5 = n[4],
                     mskOilLevel = n[F_MSK_OIL], mskFilterDiff = n[F_MSK_DIFF],
+                    sguLeak1 = n[F_SGU_LEAK_1], sguLeak2 = n[F_SGU_LEAK_2],
                     engineOilLevel = n[F_ENG_OIL], pressureBefore = n[F_P_BEFORE], pressureAfter = n[F_P_AFTER],
                     note = note,
                 )
@@ -423,31 +429,39 @@ private fun ReadingForm(form: List<String>, prev: KnownValues, hasCylinders: Boo
                 Field(F_MSK_OIL, "Уровень масла", form, prev, set, Modifier.weight(1f))
                 Field(F_MSK_DIFF, "Перепад фильтр.", form, prev, set, Modifier.weight(1f), neg = true)
             }
+            if (hasCylinders) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Field(F_SGU_LEAK_1, "Утечки СГУ-1", form, prev, set, Modifier.weight(1f))
+                    Field(F_SGU_LEAK_2, "Утечки СГУ-2", form, prev, set, Modifier.weight(1f))
+                }
+            }
         }
         Section("Двигатель", Icons.Default.Speed) {
             Field(F_ENG_OIL, "Уровень в маслобаке двигателя", form, prev, set, Modifier.fillMaxWidth())
-            Text("Давление на фильтрах", style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
-                Field(F_P_BEFORE, "До", form, prev, set, Modifier.weight(1f))
-                Field(F_P_AFTER, "После", form, prev, set, Modifier.weight(1f))
-                val b = eff(form, prev, F_P_BEFORE)
-                val a = eff(form, prev, F_P_AFTER)
-                val diff = if (a != null && b != null) b - a else null
-                Column(
-                    Modifier.weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.secondaryContainer)
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                ) {
-                    Text("Перепад", style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer)
-                    Text(
-                        if (diff != null) formatNumber(diff) else "—",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
+            if (hasCylinders) {
+                Text("Давление на фильтрах", style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
+                    Field(F_P_BEFORE, "До", form, prev, set, Modifier.weight(1f))
+                    Field(F_P_AFTER, "После", form, prev, set, Modifier.weight(1f))
+                    val b = eff(form, prev, F_P_BEFORE)
+                    val a = eff(form, prev, F_P_AFTER)
+                    val diff = if (a != null && b != null) b - a else null
+                    Column(
+                        Modifier.weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.secondaryContainer)
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    ) {
+                        Text("Перепад", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Text(
+                            if (diff != null) formatNumber(diff) else "—",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    }
                 }
             }
         }
@@ -512,11 +526,16 @@ private fun ReadingCard(r: Reading, showCylinders: Boolean, isCurrent: Boolean, 
             }
             Spacer(Modifier.height(4.dp))
             Text("МСК: уровень ${dash(r.mskOilLevel)}, перепад на фильтрах ${dash(r.mskFilterDiff)}")
+            if (showCylinders) {
+                Text("Утечки СГУ: №1 ${dash(r.sguLeak1)}, №2 ${dash(r.sguLeak2)}")
+            }
             Text("Двигатель: уровень ${dash(r.engineOilLevel)}")
-            Text(
-                "Фильтры: до ${dash(r.pressureBefore)} / после ${dash(r.pressureAfter)} → перепад ${dash(r.engineFilterDiff())}",
-                fontWeight = FontWeight.Medium,
-            )
+            if (showCylinders) {
+                Text(
+                    "Фильтры: до ${dash(r.pressureBefore)} / после ${dash(r.pressureAfter)} → перепад ${dash(r.engineFilterDiff())}",
+                    fontWeight = FontWeight.Medium,
+                )
+            }
             if (r.note.isNotBlank()) {
                 Spacer(Modifier.height(4.dp))
                 Text("Примечание: ${r.note}", style = MaterialTheme.typography.bodyMedium)
