@@ -66,6 +66,12 @@ abstract class RemarkDao {
     @Query("SELECT gpaId, COUNT(*) AS cnt FROM remarks WHERE resolved = 0 GROUP BY gpaId")
     abstract fun openCounts(): Flow<List<GpaCount>>
 
+    @Query("SELECT * FROM remarks ORDER BY resolved ASC, timestamp DESC")
+    abstract fun all(): Flow<List<Remark>>
+
+    @Query("SELECT * FROM remark_photos ORDER BY id")
+    abstract fun allPhotos(): Flow<List<RemarkPhoto>>
+
     @Query("SELECT * FROM remarks WHERE id = :id")
     abstract suspend fun get(id: Long): Remark?
 
