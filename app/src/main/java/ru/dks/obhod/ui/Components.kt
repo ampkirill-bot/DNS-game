@@ -29,6 +29,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Warning
@@ -243,6 +244,7 @@ fun PhotoViewer(
     path: String,
     onDismiss: () -> Unit,
     onDelete: (() -> Unit)? = null,
+    onEdit: (() -> Unit)? = null,
     caption: String? = null,
     onCaptionChange: ((String) -> Unit)? = null,
 ) {
@@ -284,9 +286,16 @@ fun PhotoViewer(
                     if (onCaptionChange != null && captionText != (caption ?: "")) onCaptionChange(captionText)
                     onDismiss()
                 }) { Icon(Icons.Default.Close, "Закрыть", tint = Color.White) }
-                if (onDelete != null) {
-                    IconButton(onClick = { confirmDelete = true }) {
-                        Icon(Icons.Default.Delete, "Удалить", tint = Color.White)
+                Row {
+                    if (onEdit != null) {
+                        IconButton(onClick = onEdit) {
+                            Icon(Icons.Default.Edit, "Отметить дефект", tint = Color.White)
+                        }
+                    }
+                    if (onDelete != null) {
+                        IconButton(onClick = { confirmDelete = true }) {
+                            Icon(Icons.Default.Delete, "Удалить", tint = Color.White)
+                        }
                     }
                 }
             }
