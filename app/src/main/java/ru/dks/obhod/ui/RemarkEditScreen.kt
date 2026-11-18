@@ -1,8 +1,11 @@
 package ru.dks.obhod.ui
 
+import android.app.Activity
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -26,6 +30,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -40,7 +45,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ru.dks.obhod.data.GpaList
 import ru.dks.obhod.data.Remark
@@ -69,6 +79,8 @@ fun RemarkEditScreen(gpaId: String, remarkId: Long, onBack: () -> Unit) {
     var editing by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
+    var easterOpen by remember { mutableStateOf(false) }
+    var easterFinal by remember { mutableStateOf(false) }
 
     LaunchedEffect(remarkId) {
         if (remarkId != 0L) {
@@ -157,10 +169,60 @@ fun RemarkEditScreen(gpaId: String, remarkId: Long, onBack: () -> Unit) {
                 ThumbRow(paths) { viewing = it }
             }
             Spacer(Modifier.height(8.dp))
+            Text(
+                "Здесь фото и видео фиксация запрещена, пошел в пизду",
+                modifier = Modifier.fillMaxWidth().clickable { easterOpen = true }.padding(4.dp),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
             Button(onClick = ::save, modifier = Modifier.fillMaxWidth().height(56.dp)) {
                 Icon(Icons.Default.Save, null)
                 Spacer(Modifier.width(8.dp))
                 Text("Сохранить")
+            }
+        }
+    }
+
+    if (easterFinal) {
+        Dialog(
+            onDismissRequest = {},
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+        ) {
+            Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        "В прямом!",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        }
+        LaunchedEffect(Unit) {
+            delay(5000)
+            (ctx as? Activity)?.finishAffinity()
+        }
+    } else if (easterOpen) {
+        Dialog(onDismissRequest = { easterOpen = false }) {
+            Surface(shape = RoundedCornerShape(20.dp), tonalElevation = 6.dp) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        "Здесь фото и видео фиксация запрещена, пошел в пизду",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    Button(onClick = { easterOpen = false; easterFinal = true }) {
+                        Text("В смысле?")
+                    }
+                }
             }
         }
     }
