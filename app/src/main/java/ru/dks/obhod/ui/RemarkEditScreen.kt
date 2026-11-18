@@ -191,7 +191,7 @@ fun RemarkEditScreen(gpaId: String, remarkId: Long, onBack: () -> Unit) {
             properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
         ) {
             Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                Box(contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         "В прямом!",
                         style = MaterialTheme.typography.headlineMedium,

@@ -98,6 +98,46 @@ fun PhotoAnnotationDialog(path: String, onDismiss: () -> Unit, onSaved: (String)
                     ),
                 )
             },
+            bottomBar = {
+                Column(
+                    Modifier.fillMaxWidth().background(Color.Black).navigationBarsPadding().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("Размер круга: ${(radius * 100).roundToInt()}%", color = Color.White)
+                    Slider(
+                        value = radius,
+                        onValueChange = { radius = it },
+                        valueRange = 0.03f..0.35f,
+                        enabled = !saving,
+                    )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        TextButton(
+                            onClick = { circles = circles.dropLast(1) },
+                            enabled = circles.isNotEmpty() && !saving,
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Undo, null)
+                            Text("Удалить последний")
+                        }
+                        Text("Кругов: ${circles.size}", color = Color.White, modifier = Modifier.padding(12.dp))
+                    }
+                    Button(
+                        onClick = {
+                            saving = true
+                            scope.launch {
+                                val saved = app.photos.annotate(path, circles)
+                                saving = false
+                                if (saved != null) onSaved(saved)
+                                else Toast.makeText(ctx, "Не удалось сохранить фото", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        enabled = circles.isNotEmpty() && !saving,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                    ) {
+                        Icon(Icons.Default.Save, null)
+                        Text(if (saving) "Сохранение…" else "Сохранить фото")
+                    }
+                }
+            },
         ) { pad ->
             Column(Modifier.fillMaxSize().padding(pad)) {
                 Text(
@@ -136,46 +176,6 @@ fun PhotoAnnotationDialog(path: String, onDismiss: () -> Unit, onSaved: (String)
                             style = Stroke(width = (minSide * 0.006f).coerceAtLeast(4f)),
                         )
                     }
-                }
-            }
-        },
-        bottomBar = {
-            Column(
-                Modifier.fillMaxWidth().background(Color.Black).navigationBarsPadding().padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text("Размер круга: ${(radius * 100).roundToInt()}%", color = Color.White)
-                Slider(
-                    value = radius,
-                    onValueChange = { radius = it },
-                    valueRange = 0.03f..0.35f,
-                    enabled = !saving,
-                )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(
-                        onClick = { circles = circles.dropLast(1) },
-                        enabled = circles.isNotEmpty() && !saving,
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Undo, null)
-                        Text("Удалить последний")
-                    }
-                    Text("Кругов: ${circles.size}", color = Color.White, modifier = Modifier.padding(12.dp))
-                }
-                Button(
-                    onClick = {
-                        saving = true
-                        scope.launch {
-                            val saved = app.photos.annotate(path, circles)
-                            saving = false
-                            if (saved != null) onSaved(saved)
-                            else Toast.makeText(ctx, "Не удалось сохранить фото", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    enabled = circles.isNotEmpty() && !saving,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                ) {
-                    Icon(Icons.Default.Save, null)
-                    Text(if (saving) "Сохранение…" else "Сохранить фото")
                 }
             }
         }
