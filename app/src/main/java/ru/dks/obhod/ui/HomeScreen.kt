@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -35,6 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -42,6 +46,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,12 +56,16 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.dks.obhod.data.Gpa
 import ru.dks.obhod.data.GpaList
 import ru.dks.obhod.data.Plant
 import ru.dks.obhod.data.Reading
 import ru.dks.obhod.data.knownValues
+import ru.dks.obhod.data.isCylinderDeviation
+import ru.dks.obhod.util.formatNumber
 import ru.dks.obhod.report.PdfGpaGroup
 import ru.dks.obhod.report.PdfRemark
 import ru.dks.obhod.ui.theme.DeviationRed
@@ -74,6 +84,7 @@ fun HomeScreen(onOpen: (String) -> Unit) {
     val allRemarks by remember { app.db.remarks().all() }.collectAsStateWithLifecycle(emptyList())
     val allRemarkPhotos by remember { app.db.remarks().allPhotos() }.collectAsStateWithLifecycle(emptyList())
     val pdfReport = rememberPdfReportController()
+    var showAllCylinders by remember { mutableStateOf(false) }
     val byGpa = remember(all) { all.groupBy { it.gpaId } }   // внутри — от новых к старым
     val latestMap = byGpa.mapValues { it.value.first() }
     val devMap = remember(byGpa) { byGpa.mapValues { knownValues(it.value).hasDeviation() } }
@@ -123,6 +134,11 @@ fun HomeScreen(onOpen: (String) -> Unit) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxSize().padding(pad),
         ) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Button(onClick = { showAllCylinders = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Все баллоны")
+                }
+            }
             for (plant in Plant.entries) {
                 val list = GpaList.byPlant(plant)
                 val done = list.count { g -> latestMap[g.id]?.let { isToday(it.timestamp) } == true }
@@ -139,6 +155,51 @@ fun HomeScreen(onOpen: (String) -> Unit) {
                 }
                 items(list, key = { it.id }) { gpa ->
                     GpaTile(gpa, latestMap[gpa.id], devMap[gpa.id] == true, remarksMap[gpa.id] ?: 0) { onOpen(gpa.id) }
+                }
+            }
+        }
+    }
+
+    if (showAllCylinders) {
+        Dialog(
+            onDismissRequest = { showAllCylinders = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                tonalElevation = 6.dp,
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
+            ) {
+                Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
+                    Text("Все баллоны", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Валанжин · последние показания", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(14.dp))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("ГПА", Modifier.width(48.dp), style = MaterialTheme.typography.labelLarge)
+                        for (i in 1..5) Text("№$i", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    GpaList.byPlant(Plant.VALANZHIN).forEach { gpa ->
+                        val values = byGpa[gpa.id]?.let { knownValues(it).cyl } ?: List(5) { null }
+                        Row(Modifier.fillMaxWidth().heightIn(min = 38.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("${gpa.number}", Modifier.width(48.dp), fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary)
+                            values.forEach { value ->
+                                Text(
+                                    value?.let { formatNumber(it) } ?: "—",
+                                    Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (isCylinderDeviation(value)) DeviationRed else MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = if (isCylinderDeviation(value)) FontWeight.Bold else FontWeight.Normal,
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = { showAllCylinders = false }, modifier = Modifier.align(Alignment.End)) {
+                        Text("Закрыть")
+                    }
                 }
             }
         }
