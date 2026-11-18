@@ -169,19 +169,19 @@ fun RemarkEditScreen(gpaId: String, remarkId: Long, onBack: () -> Unit) {
                 ThumbRow(paths) { viewing = it }
             }
             Spacer(Modifier.height(8.dp))
-            Text(
-                "Здесь фото и видео фиксация запрещена, пошел в пизду",
-                modifier = Modifier.fillMaxWidth().clickable { easterOpen = true }.padding(4.dp),
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Normal,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
             Button(onClick = ::save, modifier = Modifier.fillMaxWidth().height(56.dp)) {
                 Icon(Icons.Default.Save, null)
                 Spacer(Modifier.width(8.dp))
                 Text("Сохранить")
             }
+            Text(
+                "Здесь фото и видео фиксация запрещена, пошел в пизду",
+                modifier = Modifier.fillMaxWidth().clickable { easterOpen = true }.padding(top = 16.dp, bottom = 12.dp),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 

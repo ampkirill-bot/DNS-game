@@ -83,6 +83,7 @@ fun PhotoAnnotationDialog(path: String, onDismiss: () -> Unit, onSaved: (String)
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         Scaffold(
+            modifier = Modifier.fillMaxSize(),
             containerColor = Color.Black,
             topBar = {
                 TopAppBar(
