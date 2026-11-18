@@ -98,6 +98,7 @@ fun PhotoAnnotationDialog(path: String, onDismiss: () -> Unit, onSaved: (String)
                     ),
                 )
             },
+            // Отдельная нижняя панель не обрезается областью фотографии.
             bottomBar = {
                 Column(
                     Modifier.fillMaxWidth().background(Color.Black).navigationBarsPadding().padding(16.dp),
