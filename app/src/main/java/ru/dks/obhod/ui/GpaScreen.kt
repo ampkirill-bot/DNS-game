@@ -408,6 +408,7 @@ private fun eff(form: List<String>, prev: KnownValues, i: Int): Double? = parseN
 private fun Field(
     i: Int, label: String, form: List<String>, prev: KnownValues, set: (Int, String) -> Unit,
     modifier: Modifier, neg: Boolean = false, cylinder: Boolean = false,
+    autoComma: Boolean = cylinder,
 ) {
     val dev = cylinder && isCylinderDeviation(eff(form, prev, i))
     NumberField(
@@ -415,7 +416,7 @@ private fun Field(
         onValueChange = { set(i, it) },
         label = label,
         allowNegative = neg,
-        autoComma = cylinder,
+        autoComma = autoComma,
         isError = dev,
         errorText = if (dev) "ОТКЛОНЕНИЕ" else null,
         placeholder = prev.at(i)?.let { formatNumber(it) },
@@ -451,7 +452,7 @@ private fun ReadingForm(form: List<String>, prev: KnownValues, hasCylinders: Boo
         Section("Компрессор (МСК)", Icons.Default.Opacity) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Field(F_MSK_OIL, "Уровень масла", form, prev, set, Modifier.weight(1f))
-                Field(F_MSK_DIFF, "Перепад фильтр.", form, prev, set, Modifier.weight(1f), neg = true)
+                Field(F_MSK_DIFF, "Перепад фильтр.", form, prev, set, Modifier.weight(1f), neg = true, autoComma = true)
             }
             if (hasCylinders) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -466,8 +467,8 @@ private fun ReadingForm(form: List<String>, prev: KnownValues, hasCylinders: Boo
                 Text("Давление на фильтрах", style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
-                    Field(F_P_BEFORE, "До", form, prev, set, Modifier.weight(1f))
-                    Field(F_P_AFTER, "После", form, prev, set, Modifier.weight(1f))
+                    Field(F_P_BEFORE, "До", form, prev, set, Modifier.weight(1f), autoComma = true)
+                    Field(F_P_AFTER, "После", form, prev, set, Modifier.weight(1f), autoComma = true)
                     val b = eff(form, prev, F_P_BEFORE)
                     val a = eff(form, prev, F_P_AFTER)
                     val diff = if (a != null && b != null) b - a else null
