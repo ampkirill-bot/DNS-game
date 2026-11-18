@@ -66,6 +66,7 @@ fun RemarkEditScreen(gpaId: String, remarkId: Long, onBack: () -> Unit) {
     var removed by rememberSaveable(stateSaver = pathsSaver) { mutableStateOf(emptyList<String>()) }
     var original by remember { mutableStateOf<Remark?>(null) }
     var viewing by remember { mutableStateOf<String?>(null) }
+    var editing by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
 
@@ -165,10 +166,28 @@ fun RemarkEditScreen(gpaId: String, remarkId: Long, onBack: () -> Unit) {
     }
 
     viewing?.let { p ->
-        PhotoViewer(p, onDismiss = { viewing = null }, onDelete = {
-            viewing = null
-            paths = paths - p
-            if (p in added) { added = added - p; app.photos.delete(p) } else removed = removed + p
+        PhotoViewer(
+            path = p,
+            onDismiss = { viewing = null },
+            onDelete = {
+                viewing = null
+                paths = paths - p
+                if (p in added) { added = added - p; app.photos.delete(p) } else removed = removed + p
+            },
+            onEdit = { viewing = null; editing = p },
+        )
+    }
+    editing?.let { p ->
+        PhotoAnnotationDialog(p, onDismiss = { editing = null }, onSaved = { newPath ->
+            editing = null
+            paths = paths.map { if (it == p) newPath else it }
+            if (p in added) {
+                added = added - p + newPath
+                app.photos.delete(p)
+            } else {
+                removed = removed + p
+                added = added + newPath
+            }
         })
     }
     if (confirmLeave) {
