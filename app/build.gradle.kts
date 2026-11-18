@@ -13,8 +13,8 @@ android {
         applicationId = "ru.dks.obhod"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.6"
+        versionCode = 8
+        versionName = "0.7.1"
     }
 
     // Постоянный ключ подписи: обновления ставятся поверх без потери данных.
@@ -32,8 +32,8 @@ android {
             signingConfig = signingConfigs.getByName("app")
         }
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("app")
         }
