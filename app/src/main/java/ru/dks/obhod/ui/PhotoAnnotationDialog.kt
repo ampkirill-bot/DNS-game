@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -93,6 +94,25 @@ fun PhotoAnnotationDialog(path: String, onDismiss: () -> Unit, onSaved: (String)
                             Icon(Icons.Default.Close, "Закрыть", tint = Color.White)
                         }
                     },
+                    actions = {
+                        Button(
+                            onClick = {
+                                saving = true
+                                scope.launch {
+                                    val saved = app.photos.annotate(path, circles)
+                                    saving = false
+                                    if (saved != null) onSaved(saved)
+                                    else Toast.makeText(ctx, "Не удалось сохранить фото", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            enabled = circles.isNotEmpty() && !saving,
+                            modifier = Modifier.padding(end = 8.dp).height(44.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp),
+                        ) {
+                            Icon(Icons.Default.Save, null)
+                            Text(if (saving) "Сохранение…" else "Сохранить")
+                        }
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Black,
                         titleContentColor = Color.White,
@@ -122,22 +142,10 @@ fun PhotoAnnotationDialog(path: String, onDismiss: () -> Unit, onSaved: (String)
                         }
                         Text("Кругов: ${circles.size}", color = Color.White, modifier = Modifier.padding(12.dp))
                     }
-                    Button(
-                        onClick = {
-                            saving = true
-                            scope.launch {
-                                val saved = app.photos.annotate(path, circles)
-                                saving = false
-                                if (saved != null) onSaved(saved)
-                                else Toast.makeText(ctx, "Не удалось сохранить фото", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        enabled = circles.isNotEmpty() && !saving,
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                    ) {
-                        Icon(Icons.Default.Save, null)
-                        Text(if (saving) "Сохранение…" else "Сохранить фото")
-                    }
+                    Text(
+                        "Фото размечается касанием. Сохранение находится наверху.",
+                        color = Color.White,
+                    )
                 }
             },
         ) { pad ->
