@@ -3,7 +3,10 @@ package ru.dks.obhod.data
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.Paint
 import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.exifinterface.media.ExifInterface
@@ -12,6 +15,9 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
+
+/** Круг в относительных координатах: радиус задан от меньшей стороны изображения. */
+data class PhotoCircle(val x: Float, val y: Float, val radius: Float)
 
 /** Фото хранятся во внутренней памяти приложения: files/photos/. */
 class PhotoStorage(private val context: Context) {
@@ -38,6 +44,33 @@ class PhotoStorage(private val context: Context) {
             runCatching { shrink(f) }
             f.absolutePath
         }.getOrNull()
+    }
+
+    /** Создаёт отдельную JPEG-копию с красными кругами, не изменяя исходный файл. */
+    suspend fun annotate(path: String, circles: List<PhotoCircle>): String? = withContext(Dispatchers.IO) {
+        val source = BitmapFactory.decodeFile(path) ?: return@withContext null
+        val output = newFile()
+        runCatching {
+            val annotated = source.copy(Bitmap.Config.ARGB_8888, true)
+            val canvas = Canvas(annotated)
+            canvas.drawBitmap(source, 0f, 0f, null)
+            val minSide = minOf(annotated.width, annotated.height)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.RED
+                style = Paint.Style.STROKE
+                strokeWidth = (minSide * 0.006f).coerceAtLeast(4f)
+            }
+            circles.forEach { c ->
+                canvas.drawCircle(c.x * annotated.width, c.y * annotated.height,
+                    c.radius * minSide, paint)
+            }
+            FileOutputStream(output).use { annotated.compress(Bitmap.CompressFormat.JPEG, 92, it) }
+            annotated.recycle()
+            output.absolutePath
+        }.getOrElse {
+            output.delete()
+            null
+        }.also { source.recycle() }
     }
 
     fun delete(path: String) {
