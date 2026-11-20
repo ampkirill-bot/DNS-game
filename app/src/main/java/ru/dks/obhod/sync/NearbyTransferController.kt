@@ -60,11 +60,13 @@ class NearbyTransferController(private val app: App, context: Context) {
     private var mode = TransferMode.NONE
     private var selection = TransferSelection()
     private var packageFile: File? = null
+    private var outgoingPayload: Payload? = null
     private var connectedEndpoint: String? = null
     private var filePayloadId: Long? = null
     private var searchTimeout: Job? = null
     private var peerName = ""
     private val incoming = mutableMapOf<Long, Payload>()
+    private val processing = mutableSetOf<Long>()
     private val localName = Build.MODEL?.take(32)?.ifBlank { null } ?: "Android"
 
     fun startSending(selection: TransferSelection) {
@@ -182,7 +184,12 @@ class NearbyTransferController(private val app: App, context: Context) {
 
     private val payloadCallback = object : PayloadCallback() {
         override fun onPayloadReceived(endpointId: String, payload: Payload) {
-            if (mode == TransferMode.RECEIVE && payload.type == Payload.Type.FILE) {
+            if (mode == TransferMode.RECEIVE && payload.type == Payload.Type.STREAM) {
+                incoming[payload.id] = payload
+                // Поток нужно читать сразу: Nearby не сохраняет его в Download.
+                handleIncoming(payload.id)
+            } else if (mode == TransferMode.RECEIVE && payload.type == Payload.Type.FILE) {
+                // Совместимость с предыдущей версией, если она выдала системный дескриптор/URI.
                 incoming[payload.id] = payload
             } else if (mode == TransferMode.SEND && payload.type == Payload.Type.BYTES) {
                 val message = payload.asBytes()?.toString(Charsets.UTF_8).orEmpty()
@@ -192,6 +199,8 @@ class NearbyTransferController(private val app: App, context: Context) {
                         message = "Данные переданы и приняты. ${message.removePrefix("OK:")}",
                         progress = 1f,
                     )
+                    runCatching { outgoingPayload?.close() }
+                    outgoingPayload = null
                     packageFile?.delete()
                     connections.disconnectFromEndpoint(endpointId)
                 }
@@ -202,6 +211,7 @@ class NearbyTransferController(private val app: App, context: Context) {
             // После успешного импорта Nearby может сообщить о завершении служебного
             // подтверждения. Оно не является новым входящим файлом и не должно менять итог.
             if (mode == TransferMode.NONE || _state.value.stage == TransferStage.SUCCESS) return
+            if (mode == TransferMode.RECEIVE && _state.value.stage == TransferStage.IMPORTING) return
             val knownIncoming = mode == TransferMode.RECEIVE && incoming.containsKey(update.payloadId)
             if (update.status == PayloadTransferUpdate.Status.IN_PROGRESS && update.totalBytes > 0) {
                 _state.value = _state.value.copy(
@@ -223,6 +233,8 @@ class NearbyTransferController(private val app: App, context: Context) {
             if (knownIncoming) {
                 handleIncoming(update.payloadId)
             } else if (mode == TransferMode.SEND && update.payloadId == filePayloadId) {
+                runCatching { outgoingPayload?.close() }
+                outgoingPayload = null
                 _state.value = _state.value.copy(
                     message = "Файл передан. Ожидание импорта на втором телефоне…", progress = 1f,
                 )
@@ -237,9 +249,10 @@ class NearbyTransferController(private val app: App, context: Context) {
             return
         }
         try {
-            val payload = Payload.fromFile(file)
+            val payload = Payload.fromStream(FileInputStream(file))
+            outgoingPayload = payload
             filePayloadId = payload.id
-            _state.value = TransferUiState(TransferStage.TRANSFERRING, message = "Отправка данных и фотографий…", progress = 0f)
+            _state.value = TransferUiState(TransferStage.TRANSFERRING, message = "Отправка данных и фотографий…", progress = null)
             connections.sendPayload(endpointId, payload)
                 .addOnFailureListener { fail("Не удалось начать передачу: ${it.userMessage()}") }
         } catch (e: Throwable) {
@@ -248,23 +261,27 @@ class NearbyTransferController(private val app: App, context: Context) {
     }
 
     private fun handleIncoming(payloadId: Long) {
-        if (_state.value.stage == TransferStage.IMPORTING || _state.value.stage == TransferStage.SUCCESS) return
-        val payload = incoming.remove(payloadId)
-        val incomingFile = payload?.asFile()
-        if (payload == null || incomingFile == null) {
-            runCatching { payload?.close() }
-            fail("Не удалось получить файл данных")
+        if (_state.value.stage == TransferStage.SUCCESS) {
+            incoming.remove(payloadId)?.let { runCatching { it.close() } }
+            return
+        }
+        if (!processing.add(payloadId)) return
+        val payload = incoming[payloadId]
+        if (payload == null) {
+            processing.remove(payloadId)
+            if (mode == TransferMode.RECEIVE) fail("Не удалось получить пакет данных")
             return
         }
         _state.value = TransferUiState(TransferStage.IMPORTING, message = "Объединение с данными этого телефона…", progress = 1f)
         scope.launch {
             var copiedFile: File? = null
             try {
-                // На новых Android файл Nearby в Download нельзя читать по прямому пути.
-                // Копируем его через выданный системой дескриптор/URI в приватный cache.
-                val receivedFile = withContext(Dispatchers.IO) { copyIncomingFile(incomingFile) }
+                // STREAM читается сразу в приватный cache и вообще не использует Download/.nearby.
+                // FILE оставлен только для совместимости с предыдущей версией отправителя.
+                val receivedFile = withContext(Dispatchers.IO) { copyIncomingPayload(payload) }
                 copiedFile = receivedFile
                 val stats = packager.importPackage(receivedFile, selection)
+                if (mode != TransferMode.RECEIVE) return@launch
                 _state.value = TransferUiState(
                     TransferStage.SUCCESS,
                     message = "Данные приняты. ${stats.message()}",
@@ -274,35 +291,45 @@ class NearbyTransferController(private val app: App, context: Context) {
                     connections.sendPayload(endpoint, Payload.fromBytes("OK:${stats.message()}".toByteArray(Charsets.UTF_8)))
                 }
             } catch (e: Throwable) {
-                fail("Не удалось импортировать данные: ${e.userMessage()}")
+                if (mode == TransferMode.RECEIVE) fail("Не удалось импортировать данные: ${e.userMessage()}")
             } finally {
                 copiedFile?.delete()
+                incoming.remove(payloadId)
+                processing.remove(payloadId)
                 runCatching { payload.close() }
             }
         }
     }
 
-    private fun copyIncomingFile(source: Payload.File): File {
+    private fun copyIncomingPayload(payload: Payload): File {
         val directory = File(context.cacheDir, "transfers").apply { mkdirs() }
         val output = File(directory, "received-${UUID.randomUUID()}.zip")
         try {
-            val descriptor = source.asParcelFileDescriptor()
-            val uri = source.asUri()
-            val javaFile = source.asJavaFile()
-            when {
-                descriptor != null -> ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
-                    FileOutputStream(output).use { input.copyTo(it) }
-                }
-                uri != null -> {
-                    val input = context.contentResolver.openInputStream(uri)
-                        ?: error("Android не предоставил доступ к принятому файлу")
+            when (payload.type) {
+                Payload.Type.STREAM -> {
+                    val input = payload.asStream()?.asInputStream()
+                        ?: error("Nearby не предоставил поток принятых данных")
                     input.use { FileOutputStream(output).use { outputStream -> it.copyTo(outputStream) } }
                 }
-                javaFile?.isFile == true -> FileInputStream(javaFile).use { input ->
-                    FileOutputStream(output).use { input.copyTo(it) }
+                Payload.Type.FILE -> {
+                    val source = payload.asFile() ?: error("Nearby не предоставил принятый файл")
+                    val descriptor = source.asParcelFileDescriptor()
+                    val uri = source.asUri()
+                    when {
+                        descriptor != null -> ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
+                            FileOutputStream(output).use { input.copyTo(it) }
+                        }
+                        uri != null -> {
+                            val input = context.contentResolver.openInputStream(uri)
+                                ?: error("Android не предоставил доступ к принятому файлу")
+                            input.use { FileOutputStream(output).use { outputStream -> it.copyTo(outputStream) } }
+                        }
+                        else -> error("Эта версия Android не предоставила безопасный доступ к файлу. Обновите приложение на обоих телефонах")
+                    }
                 }
-                else -> error("Nearby не предоставил доступ к принятому файлу")
+                else -> error("Неподдерживаемый формат передачи")
             }
+            if (output.length() == 0L) error("Принят пустой пакет данных")
             return output
         } catch (e: Throwable) {
             output.delete()
@@ -321,6 +348,7 @@ class NearbyTransferController(private val app: App, context: Context) {
     private fun clearIncoming() {
         incoming.values.forEach { runCatching { it.close() } }
         incoming.clear()
+        processing.clear()
     }
 
     private fun fail(message: String) {
@@ -331,6 +359,9 @@ class NearbyTransferController(private val app: App, context: Context) {
         connections.stopAllEndpoints()
         connectedEndpoint = null
         peerName = ""
+        filePayloadId = null
+        runCatching { outgoingPayload?.close() }
+        outgoingPayload = null
         packageFile?.delete()
         packageFile = null
         clearIncoming()
@@ -346,6 +377,8 @@ class NearbyTransferController(private val app: App, context: Context) {
         connectedEndpoint = null
         peerName = ""
         filePayloadId = null
+        runCatching { outgoingPayload?.close() }
+        outgoingPayload = null
         packageFile?.delete()
         packageFile = null
         clearIncoming()
