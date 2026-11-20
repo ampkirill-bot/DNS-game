@@ -32,6 +32,12 @@ interface ReadingDao {
 
     @Query("SELECT * FROM readings ORDER BY timestamp DESC")
     fun all(): Flow<List<Reading>>
+
+    @Query("SELECT * FROM readings ORDER BY timestamp DESC")
+    suspend fun snapshot(): List<Reading>
+
+    @Query("SELECT * FROM readings WHERE syncId = :syncId LIMIT 1")
+    suspend fun bySyncId(syncId: String): Reading?
 }
 
 @Dao
@@ -53,6 +59,15 @@ interface HangarDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveNote(n: HangarNote)
+
+    @Query("SELECT * FROM hangar_photos ORDER BY timestamp DESC")
+    suspend fun photosSnapshot(): List<HangarPhoto>
+
+    @Query("SELECT * FROM hangar_photos WHERE syncId = :syncId LIMIT 1")
+    suspend fun photoBySyncId(syncId: String): HangarPhoto?
+
+    @Query("SELECT * FROM hangar_notes")
+    suspend fun notesSnapshot(): List<HangarNote>
 }
 
 @Dao
@@ -69,8 +84,14 @@ abstract class RemarkDao {
     @Query("SELECT * FROM remarks ORDER BY resolved ASC, timestamp DESC")
     abstract fun all(): Flow<List<Remark>>
 
+    @Query("SELECT * FROM remarks ORDER BY resolved ASC, timestamp DESC")
+    abstract suspend fun snapshot(): List<Remark>
+
     @Query("SELECT * FROM remark_photos ORDER BY id")
     abstract fun allPhotos(): Flow<List<RemarkPhoto>>
+
+    @Query("SELECT * FROM remark_photos ORDER BY id")
+    abstract suspend fun photosSnapshot(): List<RemarkPhoto>
 
     @Query("SELECT * FROM remarks WHERE id = :id")
     abstract suspend fun get(id: Long): Remark?
@@ -84,8 +105,14 @@ abstract class RemarkDao {
     @Delete
     abstract suspend fun delete(r: Remark)
 
-    @Query("UPDATE remarks SET resolved = :resolved WHERE id = :id")
-    abstract suspend fun setResolved(id: Long, resolved: Boolean)
+    @Query("UPDATE remarks SET resolved = :resolved, updatedAt = :updatedAt WHERE id = :id")
+    abstract suspend fun setResolved(id: Long, resolved: Boolean, updatedAt: Long = System.currentTimeMillis())
+
+    @Query("SELECT * FROM remarks WHERE syncId = :syncId LIMIT 1")
+    abstract suspend fun bySyncId(syncId: String): Remark?
+
+    @Query("SELECT * FROM remark_photos WHERE syncId = :syncId LIMIT 1")
+    abstract suspend fun photoBySyncId(syncId: String): RemarkPhoto?
 
     @Query("DELETE FROM remark_photos WHERE remarkId = :remarkId")
     abstract suspend fun clearPhotos(remarkId: Long)

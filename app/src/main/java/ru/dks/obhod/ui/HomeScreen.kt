@@ -77,7 +77,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onOpen: (String) -> Unit) {
+fun HomeScreen(onOpen: (String) -> Unit, onTransfer: () -> Unit) {
     val app = app()
     val all by remember { app.db.readings().all() }.collectAsStateWithLifecycle(emptyList())
     val openRemarks by remember { app.db.remarks().openCounts() }.collectAsStateWithLifecycle(emptyList())
@@ -135,8 +135,13 @@ fun HomeScreen(onOpen: (String) -> Unit) {
             modifier = Modifier.fillMaxSize().padding(pad),
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Button(onClick = { showAllCylinders = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Все баллоны")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(onClick = { showAllCylinders = true }, modifier = Modifier.weight(1f)) {
+                        Text("Все баллоны")
+                    }
+                    Button(onClick = onTransfer, modifier = Modifier.weight(1f)) {
+                        Text("Передача данных")
+                    }
                 }
             }
             for (plant in Plant.entries) {

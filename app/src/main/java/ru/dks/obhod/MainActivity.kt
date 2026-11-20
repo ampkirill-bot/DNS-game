@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import ru.dks.obhod.ui.DataTransferScreen
 import ru.dks.obhod.ui.GpaScreen
 import ru.dks.obhod.ui.HangarScreen
 import ru.dks.obhod.ui.HomeScreen
@@ -24,7 +25,13 @@ class MainActivity : ComponentActivity() {
                 val nav = rememberNavController()
                 NavHost(nav, startDestination = "home") {
                     composable("home") {
-                        HomeScreen(onOpen = { nav.navigate("gpa/$it") })
+                        HomeScreen(
+                            onOpen = { nav.navigate("gpa/$it") },
+                            onTransfer = { nav.navigate("transfer") },
+                        )
+                    }
+                    composable("transfer") {
+                        DataTransferScreen(onBack = { nav.popBackStack() })
                     }
                     composable(
                         "gpa/{gpaId}?tab={tab}",
