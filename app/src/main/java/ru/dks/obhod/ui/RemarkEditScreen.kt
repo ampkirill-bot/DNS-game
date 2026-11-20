@@ -108,7 +108,15 @@ fun RemarkEditScreen(gpaId: String, remarkId: Long, onBack: () -> Unit) {
             Toast.makeText(ctx, "Добавьте описание или фото", Toast.LENGTH_SHORT).show()
             return
         }
-        val r = Remark(id = remarkId, gpaId = gpaId, timestamp = timestamp, text = text.trim(), resolved = resolved)
+        val r = Remark(
+            id = remarkId,
+            gpaId = gpaId,
+            timestamp = timestamp,
+            text = text.trim(),
+            resolved = resolved,
+            syncId = original?.syncId ?: java.util.UUID.randomUUID().toString(),
+            updatedAt = System.currentTimeMillis(),
+        )
         val finalPaths = paths
         val toRemove = removed
         app.scope.launch {

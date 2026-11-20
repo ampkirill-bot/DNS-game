@@ -152,6 +152,7 @@ fun GpaScreen(
     var loaded by rememberSaveable { mutableStateOf(false) }
     var curId by rememberSaveable { mutableLongStateOf(0L) }       // id текущей записи обхода (0 — ещё нет)
     var curTs by rememberSaveable { mutableLongStateOf(0L) }
+    var curSyncId by rememberSaveable { mutableStateOf("") }
     var roundStart by rememberSaveable { mutableLongStateOf(0L) }  // момент нажатия «Новая запись»
     var editVersion by remember { mutableIntStateOf(0) }
     var pending by remember { mutableStateOf(false) }
@@ -166,7 +167,7 @@ fun GpaScreen(
         val list = readings ?: return@LaunchedEffect
         if (!loaded) {
             val o = openRecord(list, roundStart)
-            if (o != null) { form = o.toForm(); curId = o.id; curTs = o.timestamp }
+            if (o != null) { form = o.toForm(); curId = o.id; curTs = o.timestamp; curSyncId = o.syncId }
             loaded = true
         }
     }
@@ -188,11 +189,17 @@ fun GpaScreen(
                     note = note,
                 )
                 if (curId != 0L) {
-                    if (any) dao.upsert(base.copy(id = curId, timestamp = curTs))
-                    else { dao.deleteById(curId); curId = 0; curTs = 0 }
+                    if (any) dao.upsert(base.copy(
+                        id = curId,
+                        timestamp = curTs,
+                        syncId = curSyncId.ifBlank { base.syncId },
+                        updatedAt = System.currentTimeMillis(),
+                    ))
+                    else { dao.deleteById(curId); curId = 0; curTs = 0; curSyncId = "" }
                 } else if (any) {
                     val ts = System.currentTimeMillis()
-                    curId = dao.upsert(base.copy(timestamp = ts)); curTs = ts
+                    curSyncId = base.syncId
+                    curId = dao.upsert(base.copy(timestamp = ts, updatedAt = ts)); curTs = ts
                 }
             }
         }
@@ -359,7 +366,7 @@ fun GpaScreen(
                 confirmNew = false
                 if (pending) commit(form)
                 roundStart = System.currentTimeMillis() + 1
-                form = List(FIELD_COUNT) { "" }; curId = 0; curTs = 0
+                form = List(FIELD_COUNT) { "" }; curId = 0; curTs = 0; curSyncId = ""
             },
             onDismiss = { confirmNew = false },
         )
@@ -369,7 +376,7 @@ fun GpaScreen(
             text = "Удалить запись от ${formatDateTime(r.timestamp)}?",
             onConfirm = {
                 toDelete = null
-                if (r.id == curId) { form = List(FIELD_COUNT) { "" }; curId = 0; curTs = 0; pending = false }
+                if (r.id == curId) { form = List(FIELD_COUNT) { "" }; curId = 0; curTs = 0; curSyncId = ""; pending = false }
                 app.scope.launch { mutex.withLock { dao.delete(r) } }
             },
             onDismiss = { toDelete = null },
