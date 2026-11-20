@@ -267,12 +267,12 @@ class SyncPackage(private val app: App) {
     }
 }
 
-private fun JSONArray?.forEach(block: (JSONObject) -> Unit) {
+private inline fun JSONArray?.forEach(block: (JSONObject) -> Unit) {
     if (this == null) return
     for (i in 0 until length()) block(getJSONObject(i))
 }
 
-private fun <T> JSONArray.mapNotNull(block: (JSONObject) -> T?): List<T> {
+private inline fun <T> JSONArray.mapNotNull(block: (JSONObject) -> T?): List<T> {
     val result = mutableListOf<T>()
     for (i in 0 until length()) block(getJSONObject(i))?.let(result::add)
     return result

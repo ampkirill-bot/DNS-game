@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.AdvertisingOptions
+import com.google.android.gms.nearby.connection.ConnectionInfo
 import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback
 import com.google.android.gms.nearby.connection.ConnectionResolution
 import com.google.android.gms.nearby.connection.ConnectionsClient
@@ -111,7 +112,7 @@ class NearbyTransferController(private val app: App, context: Context) {
     }
 
     private val connectionCallback = object : ConnectionLifecycleCallback() {
-        override fun onConnectionInitiated(endpointId: String, info: ConnectionResolution) {
+        override fun onConnectionInitiated(endpointId: String, info: ConnectionInfo) {
             if (mode == TransferMode.NONE) {
                 connections.rejectConnection(endpointId)
                 return
@@ -234,7 +235,7 @@ class NearbyTransferController(private val app: App, context: Context) {
 
     private fun handleIncoming(payloadId: Long) {
         if (_state.value.stage == TransferStage.IMPORTING || _state.value.stage == TransferStage.SUCCESS) return
-        val file = incoming.remove(payloadId)?.asFile()?.asFile()
+        val file = incoming.remove(payloadId)?.asFile()?.asJavaFile()
         if (file == null) {
             fail("Не удалось получить файл данных")
             return
@@ -268,7 +269,7 @@ class NearbyTransferController(private val app: App, context: Context) {
     }
 
     private fun clearIncoming() {
-        incoming.values.forEach { it.asFile()?.asFile()?.delete() }
+        incoming.values.forEach { it.asFile()?.asJavaFile()?.delete() }
         incoming.clear()
     }
 
@@ -277,7 +278,7 @@ class NearbyTransferController(private val app: App, context: Context) {
         searchTimeout?.cancel()
         connections.stopAdvertising()
         connections.stopDiscovery()
-        connections.disconnectAllEndpoints()
+        connections.stopAllEndpoints()
         connectedEndpoint = null
         peerName = ""
         packageFile?.delete()
@@ -291,7 +292,7 @@ class NearbyTransferController(private val app: App, context: Context) {
         searchTimeout?.cancel()
         connections.stopAdvertising()
         connections.stopDiscovery()
-        connections.disconnectAllEndpoints()
+        connections.stopAllEndpoints()
         connectedEndpoint = null
         peerName = ""
         filePayloadId = null
