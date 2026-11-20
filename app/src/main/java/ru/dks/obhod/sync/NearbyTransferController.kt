@@ -2,6 +2,7 @@ package ru.dks.obhod.sync
 
 import android.content.Context
 import android.os.Build
+import android.os.ParcelFileDescriptor
 import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.AdvertisingOptions
 import com.google.android.gms.nearby.connection.ConnectionInfo
@@ -25,8 +26,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ru.dks.obhod.App
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.util.UUID
 
 private const val SERVICE_ID = "ru.dks.obhod.ANDROID_SYNC_V1"
 
@@ -235,15 +240,22 @@ class NearbyTransferController(private val app: App, context: Context) {
 
     private fun handleIncoming(payloadId: Long) {
         if (_state.value.stage == TransferStage.IMPORTING || _state.value.stage == TransferStage.SUCCESS) return
-        val file = incoming.remove(payloadId)?.asFile()?.asJavaFile()
-        if (file == null) {
+        val payload = incoming.remove(payloadId)
+        val incomingFile = payload?.asFile()
+        if (payload == null || incomingFile == null) {
+            runCatching { payload?.close() }
             fail("Не удалось получить файл данных")
             return
         }
         _state.value = TransferUiState(TransferStage.IMPORTING, message = "Объединение с данными этого телефона…", progress = 1f)
         scope.launch {
+            var copiedFile: File? = null
             try {
-                val stats = packager.importPackage(file, selection)
+                // На новых Android файл Nearby в Download нельзя читать по прямому пути.
+                // Копируем его через выданный системой дескриптор/URI в приватный cache.
+                val receivedFile = withContext(Dispatchers.IO) { copyIncomingFile(incomingFile) }
+                copiedFile = receivedFile
+                val stats = packager.importPackage(receivedFile, selection)
                 _state.value = TransferUiState(
                     TransferStage.SUCCESS,
                     message = "Данные приняты. ${stats.message()}",
@@ -255,8 +267,37 @@ class NearbyTransferController(private val app: App, context: Context) {
             } catch (e: Throwable) {
                 fail("Не удалось импортировать данные: ${e.userMessage()}")
             } finally {
-                file.delete()
+                copiedFile?.delete()
+                runCatching { payload.close() }
             }
+        }
+    }
+
+    private fun copyIncomingFile(source: Payload.File): File {
+        val directory = File(context.cacheDir, "transfers").apply { mkdirs() }
+        val output = File(directory, "received-${UUID.randomUUID()}.zip")
+        try {
+            val descriptor = source.asParcelFileDescriptor()
+            val uri = source.asUri()
+            val javaFile = source.asJavaFile()
+            when {
+                descriptor != null -> ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
+                    FileOutputStream(output).use { input.copyTo(it) }
+                }
+                uri != null -> {
+                    val input = context.contentResolver.openInputStream(uri)
+                        ?: error("Android не предоставил доступ к принятому файлу")
+                    input.use { FileOutputStream(output).use { outputStream -> it.copyTo(outputStream) } }
+                }
+                javaFile?.isFile == true -> FileInputStream(javaFile).use { input ->
+                    FileOutputStream(output).use { input.copyTo(it) }
+                }
+                else -> error("Nearby не предоставил доступ к принятому файлу")
+            }
+            return output
+        } catch (e: Throwable) {
+            output.delete()
+            throw e
         }
     }
 
@@ -269,7 +310,7 @@ class NearbyTransferController(private val app: App, context: Context) {
     }
 
     private fun clearIncoming() {
-        incoming.values.forEach { it.asFile()?.asJavaFile()?.delete() }
+        incoming.values.forEach { runCatching { it.close() } }
         incoming.clear()
     }
 
