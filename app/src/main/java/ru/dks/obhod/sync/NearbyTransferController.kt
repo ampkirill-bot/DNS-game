@@ -199,6 +199,10 @@ class NearbyTransferController(private val app: App, context: Context) {
         }
 
         override fun onPayloadTransferUpdate(endpointId: String, update: PayloadTransferUpdate) {
+            // После успешного импорта Nearby может сообщить о завершении служебного
+            // подтверждения. Оно не является новым входящим файлом и не должно менять итог.
+            if (mode == TransferMode.NONE || _state.value.stage == TransferStage.SUCCESS) return
+            val knownIncoming = mode == TransferMode.RECEIVE && incoming.containsKey(update.payloadId)
             if (update.status == PayloadTransferUpdate.Status.IN_PROGRESS && update.totalBytes > 0) {
                 _state.value = _state.value.copy(
                     stage = if (mode == TransferMode.RECEIVE) TransferStage.TRANSFERRING else _state.value.stage,
@@ -207,11 +211,16 @@ class NearbyTransferController(private val app: App, context: Context) {
                 )
             }
             if (update.status == PayloadTransferUpdate.Status.FAILURE || update.status == PayloadTransferUpdate.Status.CANCELED) {
-                fail("Передача прервана")
+                val relevant = when (mode) {
+                    TransferMode.RECEIVE -> knownIncoming
+                    TransferMode.SEND -> update.payloadId == filePayloadId
+                    TransferMode.NONE -> false
+                }
+                if (relevant) fail("Передача прервана")
                 return
             }
             if (update.status != PayloadTransferUpdate.Status.SUCCESS) return
-            if (mode == TransferMode.RECEIVE) {
+            if (knownIncoming) {
                 handleIncoming(update.payloadId)
             } else if (mode == TransferMode.SEND && update.payloadId == filePayloadId) {
                 _state.value = _state.value.copy(
