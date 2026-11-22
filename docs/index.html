@@ -185,16 +185,39 @@ textarea:focus, .txt:focus { border-color: var(--steel); outline: none; }
 
 .fab { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 6; background: var(--amber); color: #2b1d00; border: 0; border-radius: 16px; padding: 15px 20px; font-weight: 700; display: flex; gap: 8px; align-items: center; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
 
-.overlay { position: fixed; inset: 0; z-index: 20; background: #000; display: flex; flex-direction: column; }
-.overlay .ob { display: flex; justify-content: space-between; padding: calc(8px + env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) 8px max(8px, env(safe-area-inset-left, 0px)); color: #fff; }
+.overlay { position: fixed; inset: 0; height: 100dvh; min-height: 0; z-index: 20; background: #000; display: flex; flex-direction: column; }
+.overlay .ob { flex: none; display: flex; justify-content: space-between; padding: calc(8px + env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) 8px max(8px, env(safe-area-inset-left, 0px)); color: #fff; }
 .overlay .img { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; touch-action: pinch-zoom; }
 .overlay .img img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .overlay .cap { padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: #111; }
 .overlay .cap input { width: 100%; background: #222; color: #fff; border: 1px solid #444; border-radius: 10px; padding: 10px; font: inherit; }
+.annotate-stage { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; padding: 8px; }
+.annotate-stage canvas { display: block; touch-action: none; max-width: 100%; max-height: 100%; }
+.annotate-tools { flex: none; max-height: 45dvh; overflow: auto; background: #111; color: #fff; padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 8px; }
+.annotate-tools label { font-weight: 600; }
+.annotate-tools input[type="range"] { width: 100%; min-height: 32px; accent-color: var(--bad); }
+.annotate-tools .row { justify-content: space-between; align-items: center; flex-wrap: nowrap; }
+.annotate-tools .hint { color: #d4dce4; }
+.annotate-tools .btn { min-height: 44px; color: #fff; }
 .modal-bg { position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,.45); display: grid; place-items: center; padding: 16px; }
 .modal { background: var(--surface); border-radius: 16px; padding: 20px; max-width: 360px; width: 100%; display: grid; gap: 16px; }
 .modal p { margin: 0; font-size: 17px; }
 .modal .row { justify-content: flex-end; }
+.position-menu { max-height: calc(100dvh - 32px); overflow: auto; gap: 10px; }
+.position-menu .btn { width: 100%; }
+.cyl-home-btn { width: 100%; }
+.cyl-modal { max-width: 560px; max-height: calc(100dvh - 32px); overflow: auto; gap: 12px; }
+.cyl-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.cyl-table th, .cyl-table td { padding: 9px 6px; border-bottom: 1px solid var(--line); text-align: center; white-space: nowrap; }
+.cyl-table th { color: var(--muted); font-size: 13px; background: var(--surface); position: sticky; top: -20px; }
+.cyl-table th:first-child, .cyl-table td:first-child { text-align: left; font-weight: 700; }
+.cyl-table td { font-family: var(--font-num); font-size: 15px; }
+.cyl-table td.dev { color: var(--bad); font-weight: 700; background: var(--bad-soft); }
+.easter-save { display: grid !important; gap: 12px !important; }
+.easter-trigger { display: block; border: 0; background: none; padding: 4px 4px 2px; color: var(--muted); font: 400 11px/1.35 var(--font-ui); text-align: center; cursor: pointer; }
+.easter-modal { text-align: center; }
+.easter-large { font-size: 26px; line-height: 1.25; font-weight: 700; text-align: center; }
+.easter-final { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: var(--bg); color: var(--fg); font-size: 34px; font-weight: 700; text-align: center; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); z-index: 40; background: #222; color: #fff; padding: 10px 18px; border-radius: 20px; font-weight: 600; max-width: calc(100% - 32px); }
 .a2hs { background: var(--amber-soft); color: var(--amber-fg); border-radius: 10px; padding: 8px 6px 8px 12px; display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
 .a2hs span { flex: 1; min-width: 0; }
@@ -212,7 +235,26 @@ textarea:focus, .txt:focus { border-color: var(--steel); outline: none; }
 // ---------- Справочник ГПА ----------
 const PLANTS = [{ id: "V", title: "Валанжин", n: 12, cyl: true }, { id: "S", title: "Сеноман", n: 3, cyl: false }];
 const GPAS = PLANTS.flatMap(p => Array.from({ length: p.n }, (_, i) => ({ id: p.id + (i + 1), plant: p, num: i + 1 })));
+const POSITIONS = [
+  { id: "V_P4", plant: PLANTS[0], title: "Поз. 4 Цех 1" },
+  { id: "V_P5", plant: PLANTS[0], title: "Поз. 5 Цех 2" },
+  { id: "V_P66", plant: PLANTS[0], title: "Поз. 66 Цех 3" },
+  { id: "V_P9", plant: PLANTS[0], title: "Поз. 9 БПГ" },
+  { id: "V_P140", plant: PLANTS[0], title: "Поз. 140 БПГ" },
+  { id: "V_P7", plant: PLANTS[0], title: "Поз. 7 АВО" },
+  { id: "V_P8", plant: PLANTS[0], title: "Поз. 8 АВО" },
+  { id: "V_P33", plant: PLANTS[0], title: "Поз. 33 АВО" },
+  { id: "V_P64", plant: PLANTS[0], title: "Поз. 64 АВО" },
+  { id: "V_P65", plant: PLANTS[0], title: "Поз. 65 АВО" },
+  { id: "V_OTHER", plant: PLANTS[0], title: "Остальные позиции" },
+  { id: "S_P2", plant: PLANTS[1], title: "Поз. 2 БПГ (С)" },
+  { id: "S_P3", plant: PLANTS[1], title: "Поз. 3 Цех сепарации" },
+  { id: "S_OTHER", plant: PLANTS[1], title: "Остальные позиции" },
+];
 const gpaById = id => GPAS.find(g => g.id === id);
+const positionById = id => POSITIONS.find(p => p.id === id);
+const locationById = id => gpaById(id) || positionById(id);
+const locationTitle = location => location.num ? `${location.plant.title} · ГПА-${location.num}` : `${location.plant.title} · ${location.title}`;
 const LIMIT = 2.8;
 
 // ---------- Иконки ----------
@@ -397,7 +439,7 @@ function showA2hs() {
 function renderHome() {
   const day = new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
   let h = `<header class="top"><div class="grow"><h1>Обход ДКС</h1><div class="sub">${esc(day[0].toUpperCase() + day.slice(1))}</div></div>
-    <button class="hdr-btn" data-act="global-report" ${reportBusy ? "disabled" : ""}>${ic("report")}${reportBusy ? "Создаю…" : "Отчёт PDF"}</button></header><main>`;
+    <button class="hdr-btn" data-act="global-report" ${reportBusy ? "disabled" : ""}>${ic("report")}${reportBusy ? "Создаю…" : "Отчёт PDF"}</button></header><main><button class="btn tonal cyl-home-btn" data-act="all-cylinders">Все баллоны</button>`;
   if (showA2hs()) h += `<div class="a2hs"><span>Чтобы работало без интернета: «Поделиться» → «На экран „Домой“»</span><button class="icon-btn" data-act="a2hs-close" aria-label="Скрыть">${ic("x")}</button></div>`;
   if (!storageOk) h += `<div class="warn">Браузер не даёт сохранять данные (возможно, включён частный режим). Записи пропадут после закрытия страницы.</div>`;
   for (const p of PLANTS) {
@@ -412,9 +454,45 @@ function renderHome() {
         ${dev ? `<span class="badge">ОТКЛОНЕНИЕ</span>` : ""}${rm ? `<span class="rm">Замечаний: ${rm}</span>` : ""}</button>`;
     }
     h += `</div>`;
+    if (p.id === "V") h += `<button class="btn tonal" data-act="positions">Позиции Валанжин</button>`;
+    else for (const position of POSITIONS.filter(x => x.plant === p)) {
+      h += `<button class="btn tonal" data-act="position" data-id="${position.id}">${esc(position.title)}</button>`;
+    }
   }
   h += `<p class="hint">Данные хранятся только в этом браузере на этом телефоне.</p></main>`;
   app.innerHTML = h;
+}
+
+function showValanzhinPositions() {
+  const bg = document.createElement("div"); bg.className = "modal-bg";
+  bg.innerHTML = `<div class="modal position-menu" role="dialog" aria-modal="true" aria-labelledby="positions-title">
+    <h2 id="positions-title" style="margin:0">Позиции Валанжин</h2>
+    ${POSITIONS.filter(p => p.plant.id === "V").map(p => `<button class="btn tonal" data-position="${p.id}">${esc(p.title)}</button>`).join("")}
+    <button class="btn ghost" data-close>Закрыть</button></div>`;
+  const onKey = e => { if (e.key === "Escape") close(); };
+  const close = () => { document.removeEventListener("keydown", onKey); bg.remove(); };
+  bg.addEventListener("click", e => {
+    const id = e.target.closest("[data-position]")?.dataset.position;
+    if (id) { close(); go({ name: "position", id }); return; }
+    if (e.target === bg || e.target.closest("[data-close]")) close();
+  });
+  document.addEventListener("keydown", onKey);
+  document.body.appendChild(bg); bg.querySelector("[data-position]").focus();
+}
+
+function showAllCylinders() {
+  const rows = GPAS.filter(g => g.plant.cyl).map(g => {
+    const values = knownValues(g.id, null).c;
+    return `<tr><td>ГПА-${g.num}</td>${values.map(v => `<td class="${isDev(v) ? "dev" : ""}">${dash(v)}</td>`).join("")}</tr>`;
+  }).join("");
+  const bg = document.createElement("div"); bg.className = "modal-bg";
+  bg.innerHTML = `<div class="modal cyl-modal" role="dialog" aria-modal="true" aria-labelledby="cyl-title">
+    <div><h2 id="cyl-title" style="margin:0">Все баллоны</h2><div class="hint">Валанжин · последние показания</div></div>
+    <table class="cyl-table"><thead><tr><th>ГПА</th><th>№1</th><th>№2</th><th>№3</th><th>№4</th><th>№5</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="row"><button class="btn ghost" data-close>Закрыть</button></div></div>`;
+  const close = () => bg.remove();
+  bg.addEventListener("click", e => { if (e.target === bg || e.target.closest("[data-close]")) close(); });
+  document.body.appendChild(bg); bg.querySelector("[data-close]").focus();
 }
 
 // ---------- Экран: ГПА ----------
@@ -460,12 +538,12 @@ function renderGpa() {
     }
     const d = diffVal();
     h += `<section class="card"><div class="card-h"><span class="ico">${ic("drop")}</span>Компрессор (МСК)</div>
-      <div class="grid2">${nf("mskOil", "Уровень масла")}${nf("mskDiff", "Перепад на фильтрах", { neg: true })}</div>
+      <div class="grid2">${nf("mskOil", "Уровень масла")}${nf("mskDiff", "Перепад на фильтрах", { neg: true, auto: true })}</div>
       ${g.plant.cyl ? `<div class="grid2">${nf("sgu1", "Утечки СГУ-1")}${nf("sgu2", "Утечки СГУ-2")}</div>` : ""}</section>
       <section class="card"><div class="card-h"><span class="ico">${ic("gauge")}</span>Двигатель</div>
       ${nf("engOil", "Уровень в маслобаке двигателя")}
       ${g.plant.cyl ? `<div class="hint">Давление на фильтрах</div>
-      <div class="grid3">${nf("pB", "До")}${nf("pA", "После")}<div class="diff"><small>Перепад</small><b class="num" id="diff">${d == null ? "—" : fmt(d)}</b></div></div>` : ""}</section>
+      <div class="grid3">${nf("pB", "До", { auto: true })}${nf("pA", "После", { auto: true })}<div class="diff"><small>Перепад</small><b class="num" id="diff">${d == null ? "—" : fmt(d)}</b></div></div>` : ""}</section>
       <section class="card"><div class="card-h"><span class="ico">${ic("note")}</span>Примечание</div>
       <textarea id="f-note" rows="2" data-txt="note" placeholder="Необязательно">${esc(form.note)}</textarea></section></main>`;
   } else if (tab === "h") {
@@ -495,6 +573,22 @@ function renderGpa() {
   hydrate();
 }
 
+// ---------- Экран: замечания позиции ----------
+function renderPosition() {
+  const position = positionById(view.id);
+  const rms = S.remarks.filter(r => r.gpaId === position.id).sort((a, b) => (a.resolved - b.resolved) || b.ts - a.ts);
+  let h = `<header class="top"><button class="icon-btn" data-act="back" aria-label="Назад">${ic("back")}</button>
+    <div class="grow"><h1>${esc(position.title)}</h1><div class="sub">${position.plant.title}</div></div></header><main>`;
+  if (!rms.length) h += `<div class="empty">Замечаний нет. Нажмите «Замечание», чтобы добавить.</div>`;
+  for (const r of rms) {
+    h += `<button class="remark ${r.resolved ? "done" : ""}" data-act="remark" data-id="${r.id}"><span class="rh">${dt(r.ts)}<span class="st">${r.resolved ? "Устранено" : "Открыто"}</span></span>
+      <p>${esc(r.text) || "(без описания)"}</p>${r.photos.length ? `<span class="thumbs">${r.photos.map(p => `<img alt="" data-photo="${p}">`).join("")}</span>` : ""}</button>`;
+  }
+  h += `</main><button class="fab" data-act="remark" data-id="">${ic("plus")}Замечание</button>`;
+  app.innerHTML = h;
+  hydrate();
+}
+
 // ---------- Экран: ангар ----------
 function renderHangar() {
   const g = gpaById(view.id);
@@ -516,18 +610,36 @@ function photoButtons(target) {
 
 // ---------- Экран: замечание ----------
 function renderRemark() {
-  const g = gpaById(view.id), d = remarkDraft;
+  const location = locationById(view.id), d = remarkDraft;
   app.innerHTML = `<header class="top"><button class="icon-btn" data-act="back" aria-label="Назад">${ic("back")}</button>
-    <div class="grow"><h1>${d.id ? "Замечание" : "Новое замечание"}</h1><div class="sub">${g.plant.title} · ГПА-${g.num} · ${dt(d.ts)}</div></div>
+    <div class="grow"><h1>${d.id ? "Замечание" : "Новое замечание"}</h1><div class="sub">${locationTitle(location)} · ${dt(d.ts)}</div></div>
     ${d.id ? `<button class="icon-btn" data-act="rmdel" aria-label="Удалить">${ic("trash")}</button>` : ""}</header><main>
     <section class="card"><label class="hint" for="rm-text">Описание замечания</label>
     <textarea id="rm-text" rows="5" data-rmtext="1">${esc(d.text)}</textarea>
     <label class="check"><input type="checkbox" id="rm-res" data-rmres="1" ${d.resolved ? "checked" : ""}>Устранено</label></section>
     <div class="row">${photoButtons("remark")}</div>
     ${d.photos.length ? `<h3 class="sec-title">Фото: ${d.photos.length}</h3><div class="pgrid">${d.photos.map(p => `<figure><img alt="" data-photo="${p}" data-act="rmview" data-id="${p}"></figure>`).join("")}</div>` : ""}
-    </main><div class="savebar"><div class="in"><button class="btn primary" data-act="rmsave">${ic("save")}Сохранить замечание</button></div></div>`;
+    </main><div class="savebar"><div class="in easter-save"><button class="btn primary" data-act="rmsave">${ic("save")}Сохранить замечание</button><span class="easter-trigger" data-act="easter-open" role="link" tabindex="0">Здесь фото и видео фиксация запрещена, пошел в пизду</span></div></div>`;
   hydrate();
 }
+const EASTER_TEXT = "Здесь фото и видео фиксация запрещена, пошел в пизду";
+function showEasterEgg() {
+  const bg = document.createElement("div"); bg.className = "modal-bg";
+  bg.innerHTML = `<div class="modal easter-modal" role="dialog" aria-modal="true" aria-label="${EASTER_TEXT}"><div class="easter-large">${EASTER_TEXT}</div><button class="btn primary" data-k="meaning">В смысле?</button></div>`;
+  bg.addEventListener("click", e => {
+    if (e.target === bg) { bg.remove(); return; }
+    if (!e.target.closest('[data-k="meaning"]')) return;
+    bg.remove();
+    const final = document.createElement("div"); final.className = "easter-final"; final.textContent = "В прямом!";
+    document.body.appendChild(final);
+    setTimeout(() => {
+      window.close();
+      if (final.isConnected) window.location.replace("about:blank");
+    }, 5000);
+  });
+  document.body.appendChild(bg); bg.querySelector('[data-k="meaning"]').focus();
+}
+
 function openRemark(id) {
   const r = id ? S.remarks.find(x => x.id === id) : null;
   remarkDraft = r ? { ...r, photos: [...r.photos], added: [], removed: [] } : { id: null, gpaId: view.id, ts: Date.now(), text: "", resolved: false, photos: [], added: [], removed: [] };
@@ -539,20 +651,101 @@ function remarkDirty() {
   const r = d.id && S.remarks.find(x => x.id === d.id);
   return r ? r.text !== d.text || r.resolved !== d.resolved : d.text.trim() !== "";
 }
-function leaveRemark() { remarkDraft.added.forEach(delPhoto); remarkDraft = null; go({ name: "gpa", id: view.id, tab: "m" }); }
+const remarkParent = id => positionById(id) ? { name: "position", id } : { name: "gpa", id, tab: "m" };
+function leaveRemark() { remarkDraft.added.forEach(delPhoto); remarkDraft = null; go(remarkParent(view.id)); }
+function replaceRemarkPhoto(oldId, newId) {
+  const d = remarkDraft;
+  d.photos = d.photos.map(x => x === oldId ? newId : x);
+  if (d.added.includes(oldId)) { d.added = d.added.filter(x => x !== oldId); delPhoto(oldId); }
+  else d.removed.push(oldId);
+  d.added.push(newId);
+  render();
+}
 
 // ---------- Просмотр фото ----------
-function viewer(photoId, { onDelete, caption, onCaption } = {}) {
+function viewer(photoId, { onDelete, onEdit, caption, onCaption } = {}) {
   const o = document.createElement("div"); o.className = "overlay"; o.setAttribute("role", "dialog");
-  o.innerHTML = `<div class="ob"><button class="icon-btn" data-k="close" aria-label="Закрыть">${ic("x")}</button>${onDelete ? `<button class="icon-btn" data-k="del" aria-label="Удалить">${ic("trash")}</button>` : ""}</div>
+  o.innerHTML = `<div class="ob"><button class="icon-btn" data-k="close" aria-label="Закрыть">${ic("x")}</button><div class="row">${onEdit ? `<button class="icon-btn" data-k="edit" aria-label="Отметить дефект">${ic("edit")}</button>` : ""}${onDelete ? `<button class="icon-btn" data-k="del" aria-label="Удалить">${ic("trash")}</button>` : ""}</div></div>
     <div class="img"><img alt="" data-photo="${photoId}"></div>${onCaption ? `<div class="cap"><input id="cap-input" placeholder="Подпись к фото" value="${esc(caption || "")}"></div>` : ""}`;
   const close = () => { if (onCaption) { const v = o.querySelector("#cap-input").value; if (v !== (caption || "")) onCaption(v); } o.remove(); };
   o.addEventListener("click", e => {
     const k = e.target.closest("[data-k]")?.dataset.k;
     if (k === "close") close();
+    if (k === "edit") { close(); onEdit(); }
     if (k === "del") confirmBox("Удалить это фото?", "Удалить", () => { o.remove(); onDelete(); });
   });
   document.body.appendChild(o); hydrate(o);
+}
+
+// Редактор замечаний: круги наносятся на отдельную копию фотографии.
+async function photoEditor(photoId, { onSaved }) {
+  const blob = await getPhoto(photoId);
+  if (!blob) { toast("Фотография не найдена"); return; }
+  const o = document.createElement("div"); o.className = "overlay";
+  o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-label", "Отметить дефект на фото");
+  o.innerHTML = `<div class="ob"><button class="icon-btn" data-k="close" aria-label="Закрыть">${ic("x")}</button><strong style="flex:1;align-self:center">Отметить дефект</strong><button class="hdr-btn" data-k="save" disabled>${ic("save")}Сохранить</button></div>
+    <div class="annotate-stage"><canvas aria-label="Фото для разметки"></canvas></div>
+    <div class="annotate-tools"><label for="circle-size">Размер круга: <b data-k="size-label">12%</b></label>
+    <input id="circle-size" data-k="size" type="range" min="3" max="35" value="12" step="1">
+    <div class="row"><button class="btn ghost" data-k="undo" disabled>Удалить последний круг</button><span data-k="count">Кругов: 0</span></div>
+    <div class="hint">Коснитесь фото, чтобы добавить круг. Можно добавить несколько кругов.</div></div>`;
+  document.body.appendChild(o);
+  const canvas = o.querySelector("canvas"), stage = o.querySelector(".annotate-stage");
+  const saveBtn = o.querySelector('[data-k="save"]'), undoBtn = o.querySelector('[data-k="undo"]');
+  const sizeInput = o.querySelector('[data-k="size"]'), count = o.querySelector('[data-k="count"]');
+  const ctx = canvas.getContext("2d"), circles = [], url = URL.createObjectURL(blob), im = new Image();
+  let closed = false, saving = false;
+  const draw = () => {
+    ctx.drawImage(im, 0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#ff2222"; ctx.lineWidth = Math.max(4, Math.min(canvas.width, canvas.height) * .006);
+    const m = Math.min(canvas.width, canvas.height);
+    circles.forEach(c => { ctx.beginPath(); ctx.arc(c.x * canvas.width, c.y * canvas.height, c.r * m, 0, Math.PI * 2); ctx.stroke(); });
+  };
+  const layout = () => {
+    if (!im.naturalWidth) return;
+    const k = Math.min((stage.clientWidth - 16) / im.naturalWidth, (stage.clientHeight - 16) / im.naturalHeight, 1);
+    canvas.style.width = Math.max(1, Math.round(im.naturalWidth * k)) + "px";
+    canvas.style.height = Math.max(1, Math.round(im.naturalHeight * k)) + "px";
+  };
+  const close = () => {
+    if (closed || saving) return;
+    closed = true; window.removeEventListener("resize", layout); document.removeEventListener("keydown", keys);
+    URL.revokeObjectURL(url); o.remove();
+  };
+  const keys = e => { if (e.key === "Escape") close(); };
+  im.onload = () => {
+    canvas.width = im.naturalWidth; canvas.height = im.naturalHeight;
+    draw(); layout(); saveBtn.disabled = false;
+  };
+  im.onerror = () => { toast("Не удалось открыть фотографию"); close(); };
+  im.src = url;
+  window.addEventListener("resize", layout); document.addEventListener("keydown", keys);
+  canvas.addEventListener("pointerdown", e => {
+    if (saving || !im.naturalWidth) return;
+    e.preventDefault();
+    const r = canvas.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    if (x < 0 || x > 1 || y < 0 || y > 1) return;
+    circles.push({ x, y, r: Number(sizeInput.value) / 100 });
+    count.textContent = `Кругов: ${circles.length}`; undoBtn.disabled = false; draw();
+  });
+  sizeInput.addEventListener("input", () => { o.querySelector('[data-k="size-label"]').textContent = sizeInput.value + "%"; });
+  o.addEventListener("click", async e => {
+    const k = e.target.closest("[data-k]")?.dataset.k;
+    if (k === "close") close();
+    if (k === "undo" && circles.length && !saving) {
+      circles.pop(); count.textContent = `Кругов: ${circles.length}`; undoBtn.disabled = !circles.length; draw();
+    }
+    if (k === "save" && im.naturalWidth && !saving) {
+      if (!circles.length) { toast("Добавьте хотя бы один круг"); return; }
+      saving = true; saveBtn.disabled = true; undoBtn.disabled = true;
+      const out = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", .92));
+      if (!out) { saving = false; saveBtn.disabled = false; undoBtn.disabled = !circles.length; toast("Не удалось сохранить фото"); return; }
+      const newId = "p" + uid(); await putPhoto(newId, out);
+      closed = true; window.removeEventListener("resize", layout); document.removeEventListener("keydown", keys);
+      URL.revokeObjectURL(url); o.remove(); onSaved(newId);
+    }
+  });
 }
 
 // ---------- PDF-отчёты по замечаниям (полностью офлайн) ----------
@@ -762,6 +955,7 @@ async function createRemarksReport(globalReport) {
 // ---------- Навигация назад ----------
 function back() {
   if (view.name === "gpa") { if (saveT) commitForm(); formGpa = null; go({ name: "home" }); } else if (view.name === "hangar") go({ name: "gpa", id: view.id });
+  else if (view.name === "position") go({ name: "home" });
   else if (view.name === "remark") { if (remarkDirty()) confirmBox("Изменения не сохранены. Выйти без сохранения?", "Выйти", leaveRemark); else leaveRemark(); }
 }
 
@@ -771,7 +965,11 @@ app.addEventListener("click", e => {
   const a = el.dataset.act, id = el.dataset.id;
   switch (a) {
     case "open": go({ name: "gpa", id }); break;
+    case "positions": showValanzhinPositions(); break;
+    case "position": go({ name: "position", id }); break;
     case "global-report": createRemarksReport(true); break;
+    case "all-cylinders": showAllCylinders(); break;
+    case "easter-open": showEasterEgg(); break;
     case "gpa-report": createRemarksReport(false); break;
     case "a2hs-close": try { localStorage.setItem("a2hs-hidden", "1"); } catch (e) {} render(); break;
     case "back": back(); break;
@@ -807,22 +1005,25 @@ app.addEventListener("click", e => {
       });
       break;
     }
-    case "rmview": viewer(id, { onDelete: () => {
-      const d = remarkDraft; d.photos = d.photos.filter(x => x !== id);
-      if (d.added.includes(id)) { d.added = d.added.filter(x => x !== id); delPhoto(id); } else d.removed.push(id);
-      render();
-    } }); break;
+    case "rmview": viewer(id, {
+      onDelete: () => {
+        const d = remarkDraft; d.photos = d.photos.filter(x => x !== id);
+        if (d.added.includes(id)) { d.added = d.added.filter(x => x !== id); delPhoto(id); } else d.removed.push(id);
+        render();
+      },
+      onEdit: () => photoEditor(id, { onSaved: newId => replaceRemarkPhoto(id, newId) }),
+    }); break;
     case "rmsave": {
       const d = remarkDraft;
       if (!d.text.trim() && !d.photos.length) { toast("Добавьте описание или фото"); return; }
       const rec = { id: d.id || uid(), gpaId: d.gpaId, ts: d.ts, text: d.text.trim(), resolved: d.resolved, photos: d.photos };
       if (d.id) S.remarks = S.remarks.map(x => x.id === d.id ? rec : x); else S.remarks.push(rec);
       d.removed.forEach(delPhoto); persist(); remarkDraft = null; toast("Замечание сохранено");
-      go({ name: "gpa", id: view.id, tab: "m" }); break;
+      go(remarkParent(view.id)); break;
     }
     case "rmdel": confirmBox("Удалить это замечание вместе с фото?", "Удалить", () => {
       const d = remarkDraft; [...d.photos, ...d.removed].forEach(delPhoto);
-      S.remarks = S.remarks.filter(x => x.id !== d.id); persist(); remarkDraft = null; go({ name: "gpa", id: view.id, tab: "m" });
+      S.remarks = S.remarks.filter(x => x.id !== d.id); persist(); remarkDraft = null; go(remarkParent(view.id));
     }); break;
   }
 });
@@ -867,6 +1068,7 @@ app.addEventListener("change", async e => {
   }
 });
 app.addEventListener("keydown", e => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.dataset.act === "easter-open") { e.preventDefault(); showEasterEgg(); return; }
   if (e.key === "Enter" && e.target.dataset.num) {
     e.preventDefault(); const all = [...app.querySelectorAll("input[data-num]")]; const i = all.indexOf(e.target);
     if (all[i + 1]) all[i + 1].focus(); else e.target.blur();
@@ -876,6 +1078,7 @@ app.addEventListener("keydown", e => {
 function render() {
   if (view.name === "home") renderHome();
   else if (view.name === "gpa") renderGpa();
+  else if (view.name === "position") renderPosition();
   else if (view.name === "hangar") renderHangar();
   else if (view.name === "remark") renderRemark();
 }
