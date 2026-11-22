@@ -1,6 +1,7 @@
 package ru.dks.obhod.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -33,6 +35,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -54,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -87,10 +91,24 @@ fun HomeScreen(onOpen: (String) -> Unit, onTransfer: () -> Unit, onPosition: (St
     val pdfReport = rememberPdfReportController()
     var showAllCylinders by remember { mutableStateOf(false) }
     var showValanzhinPositions by remember { mutableStateOf(false) }
+    var showGlobalReport by remember { mutableStateOf(false) }
+    var selectedReportRemarks by remember { mutableStateOf(setOf<Long>()) }
     val byGpa = remember(all) { all.groupBy { it.gpaId } }   // внутри — от новых к старым
     val latestMap = byGpa.mapValues { it.value.first() }
     val devMap = remember(byGpa) { byGpa.mapValues { knownValues(it.value).hasDeviation() } }
     val remarksMap = openRemarks.associate { it.gpaId to it.cnt }
+    val globalReportGroups = remember(allRemarks, allRemarkPhotos) {
+        val locations = GpaList.all.map { it.id to it.fullTitle } +
+            PositionList.all.map { it.id to it.fullTitle }
+        locations.mapNotNull { (id, title) ->
+            val items = allRemarks.filter { it.gpaId == id }
+                .sortedWith(compareBy({ it.resolved }, { -it.timestamp }))
+                .map { rm ->
+                    PdfRemark(rm, allRemarkPhotos.filter { it.remarkId == rm.id }.map { it.path })
+                }
+            if (items.isEmpty()) null else PdfGroup(title, items)
+        }
+    }
 
     val today = remember { SimpleDateFormat("EEEE, d MMMM", Locale("ru")).format(Date()) }
 
@@ -106,17 +124,12 @@ fun HomeScreen(onOpen: (String) -> Unit, onTransfer: () -> Unit, onPosition: (St
                 actions = {
                     TextButton(
                         onClick = {
-                            val locations = GpaList.all.map { it.id to it.fullTitle } +
-                                PositionList.all.map { it.id to it.fullTitle }
-                            val groups = locations.mapNotNull { (id, title) ->
-                                val items = allRemarks.filter { it.gpaId == id }.map { rm ->
-                                    PdfRemark(rm, allRemarkPhotos.filter { it.remarkId == rm.id }.map { it.path })
-                                }
-                                if (items.isEmpty()) null else PdfGroup(title, items)
-                            }
-                            pdfReport.start("Общий отчёт по замечаниям", groups, "Otchet_zamechaniya_obshchiy")
+                            selectedReportRemarks = globalReportGroups.flatMap { group ->
+                                group.remarks.map { it.remark.id }
+                            }.toSet()
+                            showGlobalReport = true
                         },
-                        enabled = !pdfReport.busy,
+                        enabled = !pdfReport.busy && globalReportGroups.isNotEmpty(),
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onPrimary),
                     ) {
                         Icon(Icons.Default.PictureAsPdf, "Общий отчёт PDF")
@@ -174,6 +187,122 @@ fun HomeScreen(onOpen: (String) -> Unit, onTransfer: () -> Unit, onPosition: (St
                         item(key = position.id) {
                             PositionTile(position.title, remarksMap[position.id] ?: 0) { onPosition(position.id) }
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showGlobalReport) {
+        val totalRemarks = globalReportGroups.sumOf { it.remarks.size }
+        Dialog(
+            onDismissRequest = { showGlobalReport = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                tonalElevation = 6.dp,
+                modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f).padding(12.dp),
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Общий отчёт PDF", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Снимите галочки с замечаний, которые не нужно включать.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(
+                            onClick = {
+                                selectedReportRemarks = globalReportGroups.flatMap { group ->
+                                    group.remarks.map { it.remark.id }
+                                }.toSet()
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Выбрать все") }
+                        TextButton(
+                            onClick = { selectedReportRemarks = emptySet() },
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Снять все") }
+                    }
+                    Text(
+                        "Выбрано: ${selectedReportRemarks.size} из $totalRemarks",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        globalReportGroups.forEach { group ->
+                            item(key = "header-${group.title}") {
+                                val selectedInGroup = group.remarks.count { selectedReportRemarks.contains(it.remark.id) }
+                                Text(
+                                    "${group.title} · $selectedInGroup/${group.remarks.size}",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(top = 10.dp, bottom = 4.dp),
+                                )
+                            }
+                            items(group.remarks.size, key = { index -> group.remarks[index].remark.id }) { index ->
+                                val item = group.remarks[index]
+                                val remark = item.remark
+                                val checked = selectedReportRemarks.contains(remark.id)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable {
+                                            selectedReportRemarks = if (checked) {
+                                                selectedReportRemarks - remark.id
+                                            } else {
+                                                selectedReportRemarks + remark.id
+                                            }
+                                        }
+                                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Checkbox(checked = checked, onCheckedChange = null)
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            remark.text.ifBlank { "(без описания)" },
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                            fontWeight = FontWeight.Medium,
+                                        )
+                                        Text(
+                                            "${reportDate(remark.timestamp)} · ${if (remark.resolved) "Устранено" else "Открыто"}" +
+                                                if (item.photos.isNotEmpty()) " · фото: ${item.photos.size}" else "",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(
+                            onClick = { showGlobalReport = false },
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Отмена") }
+                        Button(
+                            onClick = {
+                                val selectedGroups = globalReportGroups.mapNotNull { group ->
+                                    val items = group.remarks.filter { selectedReportRemarks.contains(it.remark.id) }
+                                    if (items.isEmpty()) null else PdfGroup(group.title, items)
+                                }
+                                showGlobalReport = false
+                                pdfReport.start(
+                                    "Общий отчёт по замечаниям",
+                                    selectedGroups,
+                                    "Otchet_zamechaniya_obshchiy",
+                                )
+                            },
+                            enabled = selectedReportRemarks.isNotEmpty() && !pdfReport.busy,
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Создать PDF (${selectedReportRemarks.size})") }
                     }
                 }
             }
@@ -350,3 +479,4 @@ private fun PositionTile(title: String, openRemarks: Int, onClick: () -> Unit) {
 }
 
 private fun hhmm(ts: Long) = SimpleDateFormat("HH:mm", Locale("ru")).format(Date(ts))
+private fun reportDate(ts: Long) = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale("ru")).format(Date(ts))
