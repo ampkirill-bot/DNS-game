@@ -3,15 +3,20 @@ package ru.dks.obhod.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import ru.dks.obhod.data.PositionList
+import ru.dks.obhod.report.PdfGroup
+import ru.dks.obhod.report.PdfRemark
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,6 +48,7 @@ fun PositionRemarksScreen(positionId: String, onBack: () -> Unit, onRemark: (Lon
     val remarkPhotos by remember(positionId) { app.db.remarks().photosForGpa(positionId) }
         .collectAsStateWithLifecycle(emptyList())
     var viewPhoto by remember { mutableStateOf<String?>(null) }
+    val pdfReport = rememberPdfReportController()
 
     Scaffold(
         topBar = {
@@ -74,6 +82,26 @@ fun PositionRemarksScreen(positionId: String, onBack: () -> Unit, onRemark: (Lon
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxSize().padding(pad),
         ) {
+            item {
+                FilledTonalButton(
+                    onClick = {
+                        val items = remarks.map { rm ->
+                            PdfRemark(rm, remarkPhotos.filter { it.remarkId == rm.id }.map { it.path })
+                        }
+                        pdfReport.start(
+                            title = "Отчёт по замечаниям · ${position.fullTitle}",
+                            groups = listOf(PdfGroup(position.fullTitle, items)),
+                            filePrefix = "Otchet_zamechaniya_${position.id}",
+                        )
+                    },
+                    enabled = remarks.isNotEmpty() && !pdfReport.busy,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Default.PictureAsPdf, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (pdfReport.busy) "Создаю PDF…" else "Создать отчёт PDF")
+                }
+            }
             if (remarks.isEmpty()) item {
                 Text("Замечаний нет. Нажмите «Замечание», чтобы добавить.", style = MaterialTheme.typography.bodyMedium)
             }

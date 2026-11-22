@@ -67,7 +67,7 @@ import ru.dks.obhod.data.Reading
 import ru.dks.obhod.data.knownValues
 import ru.dks.obhod.data.isCylinderDeviation
 import ru.dks.obhod.util.formatNumber
-import ru.dks.obhod.report.PdfGpaGroup
+import ru.dks.obhod.report.PdfGroup
 import ru.dks.obhod.report.PdfRemark
 import ru.dks.obhod.ui.theme.DeviationRed
 import ru.dks.obhod.ui.theme.OkGreen
@@ -106,13 +106,15 @@ fun HomeScreen(onOpen: (String) -> Unit, onTransfer: () -> Unit, onPosition: (St
                 actions = {
                     TextButton(
                         onClick = {
-                            val groups = GpaList.all.mapNotNull { gpa ->
-                                val items = allRemarks.filter { it.gpaId == gpa.id }.map { rm ->
+                            val locations = GpaList.all.map { it.id to it.fullTitle } +
+                                PositionList.all.map { it.id to it.fullTitle }
+                            val groups = locations.mapNotNull { (id, title) ->
+                                val items = allRemarks.filter { it.gpaId == id }.map { rm ->
                                     PdfRemark(rm, allRemarkPhotos.filter { it.remarkId == rm.id }.map { it.path })
                                 }
-                                if (items.isEmpty()) null else PdfGpaGroup(gpa, items)
+                                if (items.isEmpty()) null else PdfGroup(title, items)
                             }
-                            pdfReport.start("Общий отчёт по замечаниям ГПА", groups, "Otchet_zamechaniya_vse_GPA")
+                            pdfReport.start("Общий отчёт по замечаниям", groups, "Otchet_zamechaniya_obshchiy")
                         },
                         enabled = !pdfReport.busy,
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onPrimary),
@@ -164,17 +166,13 @@ fun HomeScreen(onOpen: (String) -> Unit, onTransfer: () -> Unit, onPosition: (St
                     GpaTile(gpa, latestMap[gpa.id], devMap[gpa.id] == true, remarksMap[gpa.id] ?: 0) { onOpen(gpa.id) }
                 }
                 if (plant == Plant.VALANZHIN) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Button(onClick = { showValanzhinPositions = true }, modifier = Modifier.fillMaxWidth()) {
-                            Text("Позиции Валанжин")
-                        }
+                    item(key = "valanzhin-positions") {
+                        PositionTile("Позиции Валанжин", 0) { showValanzhinPositions = true }
                     }
                 } else {
                     PositionList.byPlant(plant).forEach { position ->
-                        item(key = position.id, span = { GridItemSpan(maxLineSpan) }) {
-                            Button(onClick = { onPosition(position.id) }, modifier = Modifier.fillMaxWidth()) {
-                                Text(position.title)
-                            }
+                        item(key = position.id) {
+                            PositionTile(position.title, remarksMap[position.id] ?: 0) { onPosition(position.id) }
                         }
                     }
                 }
@@ -183,19 +181,29 @@ fun HomeScreen(onOpen: (String) -> Unit, onTransfer: () -> Unit, onPosition: (St
     }
 
     if (showValanzhinPositions) {
-        Dialog(onDismissRequest = { showValanzhinPositions = false }) {
-            Surface(shape = RoundedCornerShape(20.dp), tonalElevation = 6.dp) {
-                Column(
-                    Modifier.padding(16.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
+        Dialog(
+            onDismissRequest = { showValanzhinPositions = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                tonalElevation = 6.dp,
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
+            ) {
+                Column(Modifier.padding(16.dp)) {
                     Text("Позиции Валанжин", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    PositionList.byPlant(Plant.VALANZHIN).forEach { position ->
-                        Button(
-                            onClick = { showValanzhinPositions = false; onPosition(position.id) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(position.title)
+                    Spacer(Modifier.height(14.dp))
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(140.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp),
+                    ) {
+                        items(PositionList.byPlant(Plant.VALANZHIN), key = { it.id }) { position ->
+                            PositionTile(position.title, remarksMap[position.id] ?: 0) {
+                                showValanzhinPositions = false
+                                onPosition(position.id)
+                            }
                         }
                     }
                     TextButton(
@@ -298,6 +306,36 @@ private fun GpaTile(gpa: Gpa, last: Reading?, dev: Boolean, openRemarks: Int, on
                     fontWeight = if (today) FontWeight.Bold else FontWeight.Normal,
                 )
                 if (dev) DeviationBadge()
+                if (openRemarks > 0) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondary))
+                        Spacer(Modifier.width(5.dp))
+                        Text("Замечаний: $openRemarks", style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PositionTile(title: String, openRemarks: Int, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
+    ) {
+        Row(Modifier.height(IntrinsicSize.Min).heightIn(min = 100.dp)) {
+            Box(Modifier.width(6.dp).fillMaxHeight().background(MaterialTheme.colorScheme.outlineVariant))
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("ПОЗИЦИИ", style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(title, fontSize = 20.sp, lineHeight = 23.sp, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary)
+                Text("Замечания и фото", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (openRemarks > 0) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondary))
