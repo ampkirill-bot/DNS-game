@@ -99,6 +99,8 @@ main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: m
 .tile.today .when { color: var(--ok); font-weight: 700; }
 .tile .rm { font-size: 13px; font-weight: 700; display: flex; gap: 5px; align-items: center; }
 .tile .rm::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
+.tile.position .t { display: grid; gap: 5px; align-items: start; }
+.tile.position .t b { font-size: 19px; line-height: 1.15; overflow-wrap: anywhere; }
 
 .badge { display: inline-flex; align-items: center; gap: 4px; background: var(--bad); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .04em; padding: 2px 7px; border-radius: 6px; width: fit-content; }
 
@@ -203,8 +205,8 @@ textarea:focus, .txt:focus { border-color: var(--steel); outline: none; }
 .modal { background: var(--surface); border-radius: 16px; padding: 20px; max-width: 360px; width: 100%; display: grid; gap: 16px; }
 .modal p { margin: 0; font-size: 17px; }
 .modal .row { justify-content: flex-end; }
-.position-menu { max-height: calc(100dvh - 32px); overflow: auto; gap: 10px; }
-.position-menu .btn { width: 100%; }
+.position-menu { max-width: 560px; max-height: calc(100dvh - 32px); overflow: auto; gap: 14px; }
+.position-menu .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .cyl-home-btn { width: 100%; }
 .cyl-modal { max-width: 560px; max-height: calc(100dvh - 32px); overflow: auto; gap: 12px; }
 .cyl-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
@@ -436,6 +438,12 @@ function showA2hs() {
 }
 
 // ---------- Экран: главная ----------
+function positionTile(title, id = null, menu = false) {
+  const attrs = menu ? `data-position="${id}"` : id ? `data-act="position" data-id="${id}"` : `data-act="positions"`;
+  const rm = id ? openRemarks(id) : 0;
+  return `<button class="tile position" ${attrs}><span class="t"><small>ПОЗИЦИИ</small><b>${esc(title)}</b></span>
+    <span class="when">Замечания и фото</span>${rm ? `<span class="rm">Замечаний: ${rm}</span>` : ""}</button>`;
+}
 function renderHome() {
   const day = new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
   let h = `<header class="top"><div class="grow"><h1>Обход ДКС</h1><div class="sub">${esc(day[0].toUpperCase() + day.slice(1))}</div></div>
@@ -453,11 +461,9 @@ function renderHome() {
         <span class="when">${!l ? "нет записей" : today ? "сегодня " + hm(l.ts) : dShort(l.ts)}</span>
         ${dev ? `<span class="badge">ОТКЛОНЕНИЕ</span>` : ""}${rm ? `<span class="rm">Замечаний: ${rm}</span>` : ""}</button>`;
     }
+    if (p.id === "V") h += positionTile("Позиции Валанжин");
+    else for (const position of POSITIONS.filter(x => x.plant === p)) h += positionTile(position.title, position.id);
     h += `</div>`;
-    if (p.id === "V") h += `<button class="btn tonal" data-act="positions">Позиции Валанжин</button>`;
-    else for (const position of POSITIONS.filter(x => x.plant === p)) {
-      h += `<button class="btn tonal" data-act="position" data-id="${position.id}">${esc(position.title)}</button>`;
-    }
   }
   h += `<p class="hint">Данные хранятся только в этом браузере на этом телефоне.</p></main>`;
   app.innerHTML = h;
@@ -467,7 +473,7 @@ function showValanzhinPositions() {
   const bg = document.createElement("div"); bg.className = "modal-bg";
   bg.innerHTML = `<div class="modal position-menu" role="dialog" aria-modal="true" aria-labelledby="positions-title">
     <h2 id="positions-title" style="margin:0">Позиции Валанжин</h2>
-    ${POSITIONS.filter(p => p.plant.id === "V").map(p => `<button class="btn tonal" data-position="${p.id}">${esc(p.title)}</button>`).join("")}
+    <div class="tiles">${POSITIONS.filter(p => p.plant.id === "V").map(p => positionTile(p.title, p.id, true)).join("")}</div>
     <button class="btn ghost" data-close>Закрыть</button></div>`;
   const onKey = e => { if (e.key === "Escape") close(); };
   const close = () => { document.removeEventListener("keydown", onKey); bg.remove(); };
@@ -578,7 +584,8 @@ function renderPosition() {
   const position = positionById(view.id);
   const rms = S.remarks.filter(r => r.gpaId === position.id).sort((a, b) => (a.resolved - b.resolved) || b.ts - a.ts);
   let h = `<header class="top"><button class="icon-btn" data-act="back" aria-label="Назад">${ic("back")}</button>
-    <div class="grow"><h1>${esc(position.title)}</h1><div class="sub">${position.plant.title}</div></div></header><main>`;
+    <div class="grow"><h1>${esc(position.title)}</h1><div class="sub">${position.plant.title}</div></div></header><main>
+    <button class="btn tonal" data-act="position-report" ${!rms.length || reportBusy ? "disabled" : ""}>${ic("report")}${reportBusy ? "Создаю PDF…" : "Создать отчёт PDF"}</button>`;
   if (!rms.length) h += `<div class="empty">Замечаний нет. Нажмите «Замечание», чтобы добавить.</div>`;
   for (const r of rms) {
     h += `<button class="remark ${r.resolved ? "done" : ""}" data-act="remark" data-id="${r.id}"><span class="rh">${dt(r.ts)}<span class="st">${r.resolved ? "Устранено" : "Открыто"}</span></span>
@@ -754,14 +761,17 @@ const REPORT_W = 1240, REPORT_H = 1754, REPORT_MARGIN = 82, REPORT_BOTTOM = 1640
 const REPORT_CONTENT_W = REPORT_W - REPORT_MARGIN * 2;
 
 class CanvasReport {
-  constructor() { this.pages = []; this.pageNo = 0; this.canvas = null; this.y = REPORT_MARGIN; }
+  constructor() {
+    this.pages = []; this.pageNo = 0; this.canvas = null; this.y = REPORT_MARGIN;
+    this.slot = 0; this.gridTop = REPORT_MARGIN; this.currentGroup = "";
+  }
   async startPage() {
     this.pageNo++;
     this.canvas = document.createElement("canvas");
     this.canvas.width = REPORT_W; this.canvas.height = REPORT_H;
     this.ctx = this.canvas.getContext("2d");
     this.ctx.fillStyle = "#fff"; this.ctx.fillRect(0, 0, REPORT_W, REPORT_H);
-    this.y = REPORT_MARGIN;
+    this.y = REPORT_MARGIN; this.slot = 0;
     if (this.pageNo > 1) {
       this.ctx.font = '20px "IBM Plex Sans", sans-serif'; this.ctx.fillStyle = "#6b7785";
       this.ctx.fillText("Отчёт по замечаниям · продолжение", REPORT_MARGIN, this.y + 20);
@@ -785,80 +795,124 @@ class CanvasReport {
       await this.flushPage(); await this.startPage();
     }
   }
-  async paragraph(text, { size = 24, bold = false, color = "#16212c", line = null, gap = 12, indent = 0 } = {}) {
-    const lineHeight = line || Math.round(size * 1.4);
-    const font = `${bold ? "700" : "400"} ${size}px "IBM Plex Sans", sans-serif`;
+  wrapLines(text, font, width) {
+    this.ctx.font = font;
+    const lines = [];
     for (const raw of String(text).split("\n")) {
       let rest = raw.trim();
-      if (!rest) { await this.ensure(lineHeight); this.y += lineHeight; continue; }
+      if (!rest) { lines.push(""); continue; }
       while (rest) {
-        await this.ensure(lineHeight);
-        this.ctx.font = font; this.ctx.fillStyle = color;
-        const available = REPORT_CONTENT_W - indent;
         let lo = 1, hi = rest.length;
         while (lo < hi) {
           const mid = Math.ceil((lo + hi) / 2);
-          if (this.ctx.measureText(rest.slice(0, mid)).width <= available) lo = mid; else hi = mid - 1;
+          if (this.ctx.measureText(rest.slice(0, mid)).width <= width) lo = mid; else hi = mid - 1;
         }
         let count = lo;
         if (count < rest.length) {
           const space = rest.lastIndexOf(" ", count);
           if (space > 0) count = space;
         }
-        this.ctx.fillText(rest.slice(0, count).trimEnd(), REPORT_MARGIN + indent, this.y + size);
-        this.y += lineHeight;
+        lines.push(rest.slice(0, count).trimEnd());
         rest = rest.slice(count).trimStart();
       }
     }
-    this.y += gap;
+    return lines;
+  }
+  textBlock(text, { size = 21, bold = false, color = "#16212c", line = null, gap = 10 } = {}, width) {
+    const lineHeight = line || Math.round(size * 1.4);
+    const font = `${bold ? "700" : "400"} ${size}px "IBM Plex Sans", sans-serif`;
+    const lines = this.wrapLines(text, font, width);
+    return { kind: "text", lines, size, color, font, line: lineHeight, gap, height: lines.length * lineHeight + gap };
+  }
+  async paragraph(text, options = {}) {
+    if (!this.canvas) await this.startPage();
+    const size = options.size || 24, lineHeight = options.line || Math.round(size * 1.4);
+    const block = this.textBlock(text, { size, ...options }, REPORT_CONTENT_W - (options.indent || 0));
+    for (const line of block.lines) {
+      await this.ensure(lineHeight);
+      this.ctx.font = block.font; this.ctx.fillStyle = block.color;
+      if (line) this.ctx.fillText(line, REPORT_MARGIN + (options.indent || 0), this.y + size);
+      this.y += lineHeight;
+    }
+    this.y += options.gap == null ? 12 : options.gap;
   }
   async groupTitle(text) {
-    // Не оставляем название участка внизу страницы без первого замечания.
-    await this.ensure(612);
+    // Новый участок начинается с отдельной сетки, не смешивая его с предыдущим.
+    if (this.slot > 0) { await this.flushPage(); await this.startPage(); }
+    this.currentGroup = text;
+    await this.drawGroupTitle(text);
+  }
+  async drawGroupTitle(text) {
+    await this.ensure(78);
     this.ctx.fillStyle = "#d6e4f2";
     this.ctx.fillRect(REPORT_MARGIN, this.y, REPORT_CONTENT_W, 60);
     this.y += 10;
-    await this.paragraph(text, { size: 31, bold: true, color: "#1f4e79", line: 42, gap: 18, indent: 16 });
+    await this.paragraph(text, { size: 29, bold: true, color: "#1f4e79", line: 40, gap: 18, indent: 16 });
+    this.gridTop = this.y; this.slot = 0;
   }
   async remark(item, number) {
-    // Обычное замечание с фото целиком переносим на следующую страницу.
-    await this.ensure(540);
-    await this.paragraph(`Замечание №${number} · ${dt(item.ts)}`, { size: 27, bold: true, line: 37, gap: 3 });
-    await this.paragraph(item.resolved ? "Статус: УСТРАНЕНО" : "Статус: ОТКРЫТО", {
-      size: 23, bold: true, color: item.resolved ? "#2e7d32" : "#d32f2f", line: 32, gap: 10,
-    });
-    await this.paragraph(`Пояснение: ${item.text.trim() || "без описания"}`, { size: 25, line: 35, gap: 16 });
+    if (this.slot >= 4) {
+      await this.flushPage(); await this.startPage();
+      await this.drawGroupTitle(`${this.currentGroup} · продолжение`);
+    }
+    const gap = 24, cellW = (REPORT_CONTENT_W - gap) / 2;
+    const cellH = (REPORT_BOTTOM - this.gridTop - gap) / 2;
+    const left = REPORT_MARGIN + (this.slot % 2) * (cellW + gap);
+    const top = this.gridTop + Math.floor(this.slot / 2) * (cellH + gap);
+    const pad = 18, contentW = cellW - pad * 2, contentH = cellH - pad * 2;
+    const blocks = [
+      this.textBlock(`Замечание №${number} · ${dt(item.ts)}`, { size: 22, bold: true, line: 30, gap: 5 }, contentW),
+      this.textBlock(item.resolved ? "Статус: УСТРАНЕНО" : "Статус: ОТКРЫТО", {
+        size: 20, bold: true, color: item.resolved ? "#2e7d32" : "#d32f2f", line: 28, gap: 10,
+      }, contentW),
+      this.textBlock(`Пояснение: ${item.text.trim() || "без описания"}`, { size: 21, line: 29, gap: 14 }, contentW),
+    ];
     if (!item.photos.length) {
-      await this.paragraph("Фотографии отсутствуют.", { size: 22, color: "#6b7785", line: 31, gap: 14 });
+      blocks.push(this.textBlock("Фотографии отсутствуют.", { size: 18, color: "#6b7785", line: 25, gap: 0 }, contentW));
     } else {
-      for (let i = 0; i < item.photos.length; i++) await this.photo(item.photos[i], i + 1, item.photos.length);
+      for (let i = 0; i < item.photos.length; i++) blocks.push(await this.photoBlock(item.photos[i], i + 1, item.photos.length, contentW));
     }
-    await this.ensure(28);
-    this.ctx.strokeStyle = "#cfd8e2"; this.ctx.lineWidth = 2;
-    this.ctx.beginPath(); this.ctx.moveTo(REPORT_MARGIN, this.y); this.ctx.lineTo(REPORT_W - REPORT_MARGIN, this.y); this.ctx.stroke();
-    this.y += 28;
+    // Масштабируем содержимое ячейки целиком: весь текст и все фото остаются в PDF.
+    const naturalHeight = blocks.reduce((sum, block) => sum + block.height, 0) || 1;
+    const scale = Math.min(1, contentH / naturalHeight);
+    this.ctx.fillStyle = "#f1f4f7"; this.ctx.fillRect(left, top, cellW, cellH);
+    this.ctx.save();
+    this.ctx.beginPath(); this.ctx.rect(left + 1, top + 1, cellW - 2, cellH - 2); this.ctx.clip();
+    this.ctx.translate(left + pad, top + pad); this.ctx.scale(scale, scale);
+    let y = 0;
+    for (const block of blocks) {
+      if (block.kind === "text") {
+        this.ctx.font = block.font; this.ctx.fillStyle = block.color;
+        for (const line of block.lines) {
+          if (line) this.ctx.fillText(line, 0, y + block.size);
+          y += block.line;
+        }
+        y += block.gap;
+      } else {
+        this.ctx.drawImage(block.img, 0, y, block.w, block.h);
+        this.ctx.strokeStyle = "#cfd8e2"; this.ctx.lineWidth = 2; this.ctx.strokeRect(0, y, block.w, block.h);
+        y += block.h + 8;
+        this.ctx.font = '18px "IBM Plex Sans", sans-serif'; this.ctx.fillStyle = "#6b7785";
+        this.ctx.fillText(block.caption, 0, y + 18); y += 32;
+      }
+    }
+    this.ctx.restore();
+    this.slot++;
   }
-  async photo(photoId, number, total) {
+  async photoBlock(photoId, number, total, width) {
+    const caption = `Фото ${number} из ${total}`;
     const blob = await getPhoto(photoId);
-    if (!blob) {
-      await this.paragraph(`Фото ${number} из ${total}: файл не найден.`, { size: 22, color: "#6b7785", gap: 14 });
-      return;
-    }
+    if (!blob) return this.textBlock(`${caption}: файл не найден.`, { size: 18, color: "#6b7785", gap: 12 }, width);
     const url = URL.createObjectURL(blob);
     try {
       const img = await new Promise((resolve, reject) => {
         const im = new Image(); im.onload = () => resolve(im); im.onerror = reject; im.src = url;
       });
-      // Компактное фото: на первой странице помещаются минимум два замечания с фото.
-      const scale = Math.min(REPORT_CONTENT_W / img.naturalWidth, 320 / img.naturalHeight, 1);
+      const scale = Math.min(width / img.naturalWidth, 190 / img.naturalHeight, 1);
       const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
-      await this.ensure(h + 58);
-      this.ctx.drawImage(img, REPORT_MARGIN, this.y, w, h);
-      this.ctx.strokeStyle = "#cfd8e2"; this.ctx.lineWidth = 2; this.ctx.strokeRect(REPORT_MARGIN, this.y, w, h);
-      this.y += h + 8;
-      await this.paragraph(`Фото ${number} из ${total}`, { size: 20, color: "#6b7785", line: 28, gap: 16 });
+      return { kind: "photo", img, w, h, caption, height: h + 40 };
     } catch (e) {
-      await this.paragraph(`Фото ${number} из ${total}: не удалось открыть.`, { size: 22, color: "#6b7785", gap: 14 });
+      return this.textBlock(`${caption}: не удалось открыть.`, { size: 18, color: "#6b7785", gap: 12 }, width);
     } finally { URL.revokeObjectURL(url); }
   }
   async finish() { await this.flushPage(); return this.pages; }
@@ -914,7 +968,7 @@ async function makeRemarksPdf(title, groups) {
   });
   for (const group of groups) {
     if (!group.remarks.length) continue;
-    await report.groupTitle(`${group.gpa.plant.title} · ГПА-${group.gpa.num}`);
+    await report.groupTitle(locationTitle(group.location));
     for (let i = 0; i < group.remarks.length; i++) await report.remark(group.remarks[i], i + 1);
   }
   return buildImagePdf(await report.finish(), title);
@@ -935,17 +989,18 @@ async function deliverPdf(blob, filename, title) {
 
 async function createRemarksReport(globalReport) {
   if (reportBusy) return;
-  const groups = (globalReport ? GPAS : [gpaById(view.id)]).map(gpa => ({
-    gpa,
-    remarks: S.remarks.filter(r => r.gpaId === gpa.id).sort((a, b) => (a.resolved - b.resolved) || b.ts - a.ts),
+  const locations = globalReport ? [...GPAS, ...POSITIONS] : [locationById(view.id)];
+  const groups = locations.map(location => ({
+    location,
+    remarks: S.remarks.filter(r => r.gpaId === location.id).sort((a, b) => (a.resolved - b.resolved) || b.ts - a.ts),
   })).filter(g => g.remarks.length);
   if (!groups.length) { toast("Нет замечаний для отчёта"); return; }
   reportBusy = true; render(); toast("Создаю PDF…");
-  const title = globalReport ? "Общий отчёт по замечаниям ГПА" : `Отчёт по замечаниям · ${groups[0].gpa.plant.title} · ГПА-${groups[0].gpa.num}`;
+  const title = globalReport ? "Общий отчёт по замечаниям" : `Отчёт по замечаниям · ${locationTitle(groups[0].location)}`;
   try {
     const blob = await makeRemarksPdf(title, groups);
     const d = new Date(), stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-    const prefix = globalReport ? "Otchet_zamechaniya_vse_GPA" : `Otchet_zamechaniya_${groups[0].gpa.id}`;
+    const prefix = globalReport ? "Otchet_zamechaniya_obshchiy" : `Otchet_zamechaniya_${groups[0].location.id}`;
     await deliverPdf(blob, `${prefix}_${stamp}.pdf`, title);
   } catch (e) {
     console.error(e); toast("Не удалось создать PDF. Попробуйте ещё раз.");
@@ -971,6 +1026,7 @@ app.addEventListener("click", e => {
     case "all-cylinders": showAllCylinders(); break;
     case "easter-open": showEasterEgg(); break;
     case "gpa-report": createRemarksReport(false); break;
+    case "position-report": createRemarksReport(false); break;
     case "a2hs-close": try { localStorage.setItem("a2hs-hidden", "1"); } catch (e) {} render(); break;
     case "back": back(); break;
     case "hangar": if (saveT) commitForm(); go({ name: "hangar", id: view.id }); break;
