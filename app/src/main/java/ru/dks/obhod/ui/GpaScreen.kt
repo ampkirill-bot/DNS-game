@@ -579,7 +579,7 @@ private fun ReadingCard(r: Reading, showCylinders: Boolean, isCurrent: Boolean, 
 private fun dash(d: Double?): String = if (d == null) "—" else formatNumber(d)
 
 @Composable
-private fun RemarkCard(
+internal fun RemarkCard(
     rm: Remark,
     photos: List<String>,
     onClick: () -> Unit,

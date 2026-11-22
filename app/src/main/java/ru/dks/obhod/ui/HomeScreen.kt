@@ -62,6 +62,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.dks.obhod.data.Gpa
 import ru.dks.obhod.data.GpaList
 import ru.dks.obhod.data.Plant
+import ru.dks.obhod.data.PositionList
 import ru.dks.obhod.data.Reading
 import ru.dks.obhod.data.knownValues
 import ru.dks.obhod.data.isCylinderDeviation
@@ -77,7 +78,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onOpen: (String) -> Unit, onTransfer: () -> Unit) {
+fun HomeScreen(onOpen: (String) -> Unit, onTransfer: () -> Unit, onPosition: (String) -> Unit) {
     val app = app()
     val all by remember { app.db.readings().all() }.collectAsStateWithLifecycle(emptyList())
     val openRemarks by remember { app.db.remarks().openCounts() }.collectAsStateWithLifecycle(emptyList())
@@ -85,6 +86,7 @@ fun HomeScreen(onOpen: (String) -> Unit, onTransfer: () -> Unit) {
     val allRemarkPhotos by remember { app.db.remarks().allPhotos() }.collectAsStateWithLifecycle(emptyList())
     val pdfReport = rememberPdfReportController()
     var showAllCylinders by remember { mutableStateOf(false) }
+    var showValanzhinPositions by remember { mutableStateOf(false) }
     val byGpa = remember(all) { all.groupBy { it.gpaId } }   // внутри — от новых к старым
     val latestMap = byGpa.mapValues { it.value.first() }
     val devMap = remember(byGpa) { byGpa.mapValues { knownValues(it.value).hasDeviation() } }
@@ -160,6 +162,48 @@ fun HomeScreen(onOpen: (String) -> Unit, onTransfer: () -> Unit) {
                 }
                 items(list, key = { it.id }) { gpa ->
                     GpaTile(gpa, latestMap[gpa.id], devMap[gpa.id] == true, remarksMap[gpa.id] ?: 0) { onOpen(gpa.id) }
+                }
+                if (plant == Plant.VALANZHIN) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Button(onClick = { showValanzhinPositions = true }, modifier = Modifier.fillMaxWidth()) {
+                            Text("Позиции Валанжин")
+                        }
+                    }
+                } else {
+                    PositionList.byPlant(plant).forEach { position ->
+                        item(key = position.id, span = { GridItemSpan(maxLineSpan) }) {
+                            Button(onClick = { onPosition(position.id) }, modifier = Modifier.fillMaxWidth()) {
+                                Text(position.title)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showValanzhinPositions) {
+        Dialog(onDismissRequest = { showValanzhinPositions = false }) {
+            Surface(shape = RoundedCornerShape(20.dp), tonalElevation = 6.dp) {
+                Column(
+                    Modifier.padding(16.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text("Позиции Валанжин", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    PositionList.byPlant(Plant.VALANZHIN).forEach { position ->
+                        Button(
+                            onClick = { showValanzhinPositions = false; onPosition(position.id) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(position.title)
+                        }
+                    }
+                    TextButton(
+                        onClick = { showValanzhinPositions = false },
+                        modifier = Modifier.align(Alignment.End),
+                    ) {
+                        Text("Закрыть")
+                    }
                 }
             }
         }

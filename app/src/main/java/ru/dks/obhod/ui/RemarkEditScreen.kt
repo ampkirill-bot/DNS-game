@@ -53,6 +53,7 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ru.dks.obhod.data.GpaList
+import ru.dks.obhod.data.PositionList
 import ru.dks.obhod.data.Remark
 import ru.dks.obhod.util.formatDateTime
 
@@ -61,7 +62,9 @@ private val pathsSaver = listSaver<List<String>, String>(save = { it }, restore 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RemarkEditScreen(gpaId: String, remarkId: Long, onBack: () -> Unit) {
-    val gpa = remember(gpaId) { GpaList.byId(gpaId) }
+    val locationTitle = remember(gpaId) {
+        GpaList.all.firstOrNull { it.id == gpaId }?.fullTitle ?: PositionList.byId(gpaId).fullTitle
+    }
     val app = app()
     val ctx = LocalContext.current
 
@@ -156,7 +159,7 @@ fun RemarkEditScreen(gpaId: String, remarkId: Long, onBack: () -> Unit) {
             Modifier.fillMaxSize().padding(pad).imePadding().verticalScroll(rememberScrollState()).padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("${gpa.fullTitle} · ${formatDateTime(timestamp)}", style = MaterialTheme.typography.labelLarge)
+            Text("$locationTitle · ${formatDateTime(timestamp)}", style = MaterialTheme.typography.labelLarge)
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },

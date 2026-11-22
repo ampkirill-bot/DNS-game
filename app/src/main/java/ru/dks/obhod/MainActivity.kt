@@ -13,6 +13,7 @@ import ru.dks.obhod.ui.DataTransferScreen
 import ru.dks.obhod.ui.GpaScreen
 import ru.dks.obhod.ui.HangarScreen
 import ru.dks.obhod.ui.HomeScreen
+import ru.dks.obhod.ui.PositionRemarksScreen
 import ru.dks.obhod.ui.RemarkEditScreen
 import ru.dks.obhod.ui.theme.DksTheme
 
@@ -28,6 +29,7 @@ class MainActivity : ComponentActivity() {
                         HomeScreen(
                             onOpen = { nav.navigate("gpa/$it") },
                             onTransfer = { nav.navigate("transfer") },
+                            onPosition = { nav.navigate("position/$it") },
                         )
                     }
                     composable("transfer") {
@@ -51,6 +53,14 @@ class MainActivity : ComponentActivity() {
                     }
                     composable("hangar/{gpaId}") { e ->
                         HangarScreen(gpaId = e.arguments!!.getString("gpaId")!!, onBack = { nav.popBackStack() })
+                    }
+                    composable("position/{positionId}") { e ->
+                        val positionId = e.arguments!!.getString("positionId")!!
+                        PositionRemarksScreen(
+                            positionId = positionId,
+                            onBack = { nav.popBackStack() },
+                            onRemark = { remarkId -> nav.navigate("remark/$positionId/$remarkId") },
+                        )
                     }
                     composable(
                         "remark/{gpaId}/{remarkId}",
