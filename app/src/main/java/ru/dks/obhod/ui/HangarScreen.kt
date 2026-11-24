@@ -50,16 +50,28 @@ fun HangarScreen(gpaId: String, onBack: () -> Unit) {
 
     // Примечания: загружаем один раз, сохраняем автоматически.
     var note by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(gpaId) { note = app.db.hangar().note(gpaId)?.text ?: "" }
+    var lastSavedNote by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(gpaId) {
+        val saved = app.db.hangar().note(gpaId)?.text ?: ""
+        lastSavedNote = saved
+        note = saved
+    }
     LaunchedEffect(note) {
         val n = note ?: return@LaunchedEffect
         delay(700)
-        app.db.hangar().saveNote(HangarNote(gpaId, n))
+        if (n != lastSavedNote) {
+            app.db.hangar().saveNote(HangarNote(gpaId, n))
+            lastSavedNote = n
+        }
     }
     val latestNote by rememberUpdatedState(note)
+    val latestSavedNote by rememberUpdatedState(lastSavedNote)
     DisposableEffect(gpaId) {
         onDispose {
-            latestNote?.let { n -> app.scope.launch { app.db.hangar().saveNote(HangarNote(gpaId, n)) } }
+            val n = latestNote
+            if (n != null && n != latestSavedNote) {
+                app.scope.launch { app.db.hangar().saveNote(HangarNote(gpaId, n)) }
+            }
         }
     }
 
@@ -129,7 +141,9 @@ fun HangarScreen(gpaId: String, onBack: () -> Unit) {
     viewing?.let { p ->
         PhotoViewer(
             path = p.path,
+            paths = photos.map { it.path },
             onDismiss = { viewing = null },
+            onNavigate = { path -> viewing = photos.firstOrNull { it.path == path } },
             onDelete = {
                 viewing = null
                 app.scope.launch {
@@ -138,7 +152,9 @@ fun HangarScreen(gpaId: String, onBack: () -> Unit) {
                 }
             },
             caption = p.caption,
-            onCaptionChange = { c -> app.scope.launch { app.db.hangar().updatePhoto(p.copy(caption = c)) } },
+            onCaptionChange = { c -> app.scope.launch {
+                app.db.hangar().updatePhoto(p.copy(caption = c, updatedAt = System.currentTimeMillis()))
+            } },
         )
     }
 }

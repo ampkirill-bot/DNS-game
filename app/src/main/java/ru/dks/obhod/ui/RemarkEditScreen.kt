@@ -1,8 +1,11 @@
 package ru.dks.obhod.ui
 
+import android.app.Activity
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -26,6 +30,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -40,9 +45,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ru.dks.obhod.data.GpaList
+import ru.dks.obhod.data.PositionList
 import ru.dks.obhod.data.Remark
 import ru.dks.obhod.util.formatDateTime
 
@@ -51,7 +62,9 @@ private val pathsSaver = listSaver<List<String>, String>(save = { it }, restore 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RemarkEditScreen(gpaId: String, remarkId: Long, onBack: () -> Unit) {
-    val gpa = remember(gpaId) { GpaList.byId(gpaId) }
+    val locationTitle = remember(gpaId) {
+        GpaList.all.firstOrNull { it.id == gpaId }?.fullTitle ?: PositionList.byId(gpaId).fullTitle
+    }
     val app = app()
     val ctx = LocalContext.current
 
@@ -66,8 +79,11 @@ fun RemarkEditScreen(gpaId: String, remarkId: Long, onBack: () -> Unit) {
     var removed by rememberSaveable(stateSaver = pathsSaver) { mutableStateOf(emptyList<String>()) }
     var original by remember { mutableStateOf<Remark?>(null) }
     var viewing by remember { mutableStateOf<String?>(null) }
+    var editing by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
+    var easterOpen by remember { mutableStateOf(false) }
+    var easterFinal by remember { mutableStateOf(false) }
 
     LaunchedEffect(remarkId) {
         if (remarkId != 0L) {
@@ -95,7 +111,15 @@ fun RemarkEditScreen(gpaId: String, remarkId: Long, onBack: () -> Unit) {
             Toast.makeText(ctx, "Добавьте описание или фото", Toast.LENGTH_SHORT).show()
             return
         }
-        val r = Remark(id = remarkId, gpaId = gpaId, timestamp = timestamp, text = text.trim(), resolved = resolved)
+        val r = Remark(
+            id = remarkId,
+            gpaId = gpaId,
+            timestamp = timestamp,
+            text = text.trim(),
+            resolved = resolved,
+            syncId = original?.syncId ?: java.util.UUID.randomUUID().toString(),
+            updatedAt = System.currentTimeMillis(),
+        )
         val finalPaths = paths
         val toRemove = removed
         app.scope.launch {
@@ -135,7 +159,7 @@ fun RemarkEditScreen(gpaId: String, remarkId: Long, onBack: () -> Unit) {
             Modifier.fillMaxSize().padding(pad).imePadding().verticalScroll(rememberScrollState()).padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("${gpa.fullTitle} · ${formatDateTime(timestamp)}", style = MaterialTheme.typography.labelLarge)
+            Text("$locationTitle · ${formatDateTime(timestamp)}", style = MaterialTheme.typography.labelLarge)
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
@@ -161,14 +185,84 @@ fun RemarkEditScreen(gpaId: String, remarkId: Long, onBack: () -> Unit) {
                 Spacer(Modifier.width(8.dp))
                 Text("Сохранить")
             }
+            Text(
+                "Здесь фото и видео фиксация запрещена, пошел в пизду",
+                modifier = Modifier.fillMaxWidth().clickable { easterOpen = true }.padding(top = 16.dp, bottom = 12.dp),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+
+    if (easterFinal) {
+        Dialog(
+            onDismissRequest = {},
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+        ) {
+            Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        "В прямом!",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        }
+        LaunchedEffect(Unit) {
+            delay(5000)
+            (ctx as? Activity)?.finishAffinity()
+        }
+    } else if (easterOpen) {
+        Dialog(onDismissRequest = { easterOpen = false }) {
+            Surface(shape = RoundedCornerShape(20.dp), tonalElevation = 6.dp) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        "Здесь фото и видео фиксация запрещена, пошел в пизду",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    Button(onClick = { easterOpen = false; easterFinal = true }) {
+                        Text("В смысле?")
+                    }
+                }
+            }
         }
     }
 
     viewing?.let { p ->
-        PhotoViewer(p, onDismiss = { viewing = null }, onDelete = {
-            viewing = null
-            paths = paths - p
-            if (p in added) { added = added - p; app.photos.delete(p) } else removed = removed + p
+        PhotoViewer(
+            path = p,
+            paths = paths,
+            onDismiss = { viewing = null },
+            onNavigate = { viewing = it },
+            onDelete = {
+                viewing = null
+                paths = paths - p
+                if (p in added) { added = added - p; app.photos.delete(p) } else removed = removed + p
+            },
+            onEdit = { viewing = null; editing = p },
+        )
+    }
+    editing?.let { p ->
+        PhotoAnnotationDialog(p, onDismiss = { editing = null }, onSaved = { newPath ->
+            editing = null
+            paths = paths.map { if (it == p) newPath else it }
+            if (p in added) {
+                added = added - p + newPath
+                app.photos.delete(p)
+            } else {
+                removed = removed + p
+                added = added + newPath
+            }
         })
     }
     if (confirmLeave) {

@@ -1,10 +1,17 @@
 package ru.dks.obhod.data
 
+import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.Paint
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import androidx.exifinterface.media.ExifInterface
 import kotlinx.coroutines.Dispatchers
@@ -12,6 +19,9 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
+
+/** Круг в относительных координатах: радиус задан от меньшей стороны изображения. */
+data class PhotoCircle(val x: Float, val y: Float, val radius: Float)
 
 /** Фото хранятся во внутренней памяти приложения: files/photos/. */
 class PhotoStorage(private val context: Context) {
@@ -38,6 +48,78 @@ class PhotoStorage(private val context: Context) {
             runCatching { shrink(f) }
             f.absolutePath
         }.getOrNull()
+    }
+
+    /** Создаёт отдельную JPEG-копию с красными кругами, не изменяя исходный файл. */
+    suspend fun annotate(path: String, circles: List<PhotoCircle>): String? = withContext(Dispatchers.IO) {
+        val source = BitmapFactory.decodeFile(path) ?: return@withContext null
+        val output = newFile()
+        runCatching {
+            val annotated = source.copy(Bitmap.Config.ARGB_8888, true)
+            val canvas = Canvas(annotated)
+            canvas.drawBitmap(source, 0f, 0f, null)
+            val minSide = minOf(annotated.width, annotated.height)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.RED
+                style = Paint.Style.STROKE
+                strokeWidth = (minSide * 0.006f).coerceAtLeast(4f)
+            }
+            circles.forEach { c ->
+                canvas.drawCircle(c.x * annotated.width, c.y * annotated.height,
+                    c.radius * minSide, paint)
+            }
+            FileOutputStream(output).use { annotated.compress(Bitmap.CompressFormat.JPEG, 92, it) }
+            annotated.recycle()
+            output.absolutePath
+        }.getOrElse {
+            output.delete()
+            null
+        }.also { source.recycle() }
+    }
+
+    /** Копирует фото в системную галерею, не удаляя оригинал из приложения. */
+    suspend fun saveToGallery(path: String): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            val source = File(path)
+            if (!source.isFile || source.length() == 0L) return@runCatching false
+            val resolver = context.contentResolver
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(source.absolutePath, bounds)
+            val mimeType = bounds.outMimeType ?: "image/jpeg"
+            val extension = when (mimeType) {
+                "image/png" -> "png"
+                "image/webp" -> "webp"
+                else -> "jpg"
+            }
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, "${source.nameWithoutExtension}.$extension")
+                put(MediaStore.Images.Media.MIME_TYPE, mimeType)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/Обход ДКС")
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
+                }
+            }
+            val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            } else {
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            }
+            val target = resolver.insert(collection, values) ?: return@runCatching false
+            try {
+                resolver.openOutputStream(target, "w")!!.use { output ->
+                    source.inputStream().use { it.copyTo(output) }
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    resolver.update(target, ContentValues().apply {
+                        put(MediaStore.Images.Media.IS_PENDING, 0)
+                    }, null, null)
+                }
+                true
+            } catch (e: Exception) {
+                resolver.delete(target, null, null)
+                throw e
+            }
+        }.getOrDefault(false)
     }
 
     fun delete(path: String) {

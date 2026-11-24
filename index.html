@@ -78,6 +78,7 @@ header.top .grow { flex: 1; min-width: 0; }
 .icon-btn { background: transparent; border: 0; width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; color: inherit; flex: none; }
 .icon-btn:active { background: rgba(255,255,255,.15); }
 .hdr-btn { background: var(--amber); color: #2b1d00; border: 0; border-radius: 10px; padding: 9px 14px; font-weight: 700; display: flex; gap: 6px; align-items: center; flex: none; }
+.btn:disabled, .hdr-btn:disabled { opacity: .55; cursor: default; }
 svg.i { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 14px 120px; max-width: 760px; margin: 0 auto; display: grid; gap: 14px; }
@@ -98,6 +99,8 @@ main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: m
 .tile.today .when { color: var(--ok); font-weight: 700; }
 .tile .rm { font-size: 13px; font-weight: 700; display: flex; gap: 5px; align-items: center; }
 .tile .rm::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
+.tile.position .t { display: grid; gap: 5px; align-items: start; }
+.tile.position .t b { font-size: 19px; line-height: 1.15; overflow-wrap: anywhere; }
 
 .badge { display: inline-flex; align-items: center; gap: 4px; background: var(--bad); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .04em; padding: 2px 7px; border-radius: 6px; width: fit-content; }
 
@@ -184,16 +187,54 @@ textarea:focus, .txt:focus { border-color: var(--steel); outline: none; }
 
 .fab { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 6; background: var(--amber); color: #2b1d00; border: 0; border-radius: 16px; padding: 15px 20px; font-weight: 700; display: flex; gap: 8px; align-items: center; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
 
-.overlay { position: fixed; inset: 0; z-index: 20; background: #000; display: flex; flex-direction: column; }
-.overlay .ob { display: flex; justify-content: space-between; padding: calc(8px + env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) 8px max(8px, env(safe-area-inset-left, 0px)); color: #fff; }
+.overlay { position: fixed; inset: 0; height: 100dvh; min-height: 0; z-index: 20; background: #000; display: flex; flex-direction: column; }
+.overlay .ob { flex: none; display: flex; justify-content: space-between; padding: calc(8px + env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) 8px max(8px, env(safe-area-inset-left, 0px)); color: #fff; }
 .overlay .img { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; touch-action: pinch-zoom; }
 .overlay .img img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .overlay .cap { padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: #111; }
 .overlay .cap input { width: 100%; background: #222; color: #fff; border: 1px solid #444; border-radius: 10px; padding: 10px; font: inherit; }
+.annotate-stage { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; padding: 8px; }
+.annotate-stage canvas { display: block; touch-action: none; max-width: 100%; max-height: 100%; }
+.annotate-tools { flex: none; max-height: 45dvh; overflow: auto; background: #111; color: #fff; padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 8px; }
+.annotate-tools label { font-weight: 600; }
+.annotate-tools input[type="range"] { width: 100%; min-height: 32px; accent-color: var(--bad); }
+.annotate-tools .row { justify-content: space-between; align-items: center; flex-wrap: nowrap; }
+.annotate-tools .hint { color: #d4dce4; }
+.annotate-tools .btn { min-height: 44px; color: #fff; }
 .modal-bg { position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,.45); display: grid; place-items: center; padding: 16px; }
 .modal { background: var(--surface); border-radius: 16px; padding: 20px; max-width: 360px; width: 100%; display: grid; gap: 16px; }
 .modal p { margin: 0; font-size: 17px; }
 .modal .row { justify-content: flex-end; }
+.report-picker { max-width: 640px; max-height: calc(100dvh - 24px); grid-template-rows: auto auto auto minmax(0, 1fr) auto; gap: 10px; overflow: hidden; }
+.report-picker .report-tools { justify-content: space-between; gap: 8px; }
+.report-picker .report-tools .btn { flex: 1; padding: 10px 12px; }
+.report-selection-summary { font-weight: 700; color: var(--ink); }
+.report-picker-list { min-height: 120px; overflow: auto; overscroll-behavior: contain; border-block: 1px solid var(--line); }
+.report-picker-group { position: sticky; top: 0; z-index: 1; background: var(--surface); padding: 12px 4px 6px; color: var(--ink); font-weight: 700; display: flex; justify-content: space-between; gap: 8px; }
+.report-choice { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.report-choice:last-child { border-bottom: 0; }
+.report-choice input { width: 26px; height: 26px; margin: 0; accent-color: var(--steel); }
+.report-choice-text { min-width: 0; display: grid; gap: 3px; }
+.report-choice-description { font-weight: 600; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.report-choice-meta { font-size: 12.5px; color: var(--muted); }
+.report-picker .report-actions { justify-content: stretch; flex-wrap: nowrap; }
+.report-picker .report-actions .btn { padding-inline: 12px; }
+.report-picker .report-actions .primary { flex: 1; }
+.position-menu { max-width: 560px; max-height: calc(100dvh - 32px); overflow: auto; gap: 14px; }
+.position-menu .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cyl-home-btn { width: 100%; }
+.cyl-modal { max-width: 560px; max-height: calc(100dvh - 32px); overflow: auto; gap: 12px; }
+.cyl-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.cyl-table th, .cyl-table td { padding: 9px 6px; border-bottom: 1px solid var(--line); text-align: center; white-space: nowrap; }
+.cyl-table th { color: var(--muted); font-size: 13px; background: var(--surface); position: sticky; top: -20px; }
+.cyl-table th:first-child, .cyl-table td:first-child { text-align: left; font-weight: 700; }
+.cyl-table td { font-family: var(--font-num); font-size: 15px; }
+.cyl-table td.dev { color: var(--bad); font-weight: 700; background: var(--bad-soft); }
+.easter-save { display: grid !important; gap: 12px !important; }
+.easter-trigger { display: block; border: 0; background: none; padding: 4px 4px 2px; color: var(--muted); font: 400 11px/1.35 var(--font-ui); text-align: center; cursor: pointer; }
+.easter-modal { text-align: center; }
+.easter-large { font-size: 26px; line-height: 1.25; font-weight: 700; text-align: center; }
+.easter-final { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: var(--bg); color: var(--fg); font-size: 34px; font-weight: 700; text-align: center; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); z-index: 40; background: #222; color: #fff; padding: 10px 18px; border-radius: 20px; font-weight: 600; max-width: calc(100% - 32px); }
 .a2hs { background: var(--amber-soft); color: var(--amber-fg); border-radius: 10px; padding: 8px 6px 8px 12px; display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
 .a2hs span { flex: 1; min-width: 0; }
@@ -211,7 +252,26 @@ textarea:focus, .txt:focus { border-color: var(--steel); outline: none; }
 // ---------- Справочник ГПА ----------
 const PLANTS = [{ id: "V", title: "Валанжин", n: 12, cyl: true }, { id: "S", title: "Сеноман", n: 3, cyl: false }];
 const GPAS = PLANTS.flatMap(p => Array.from({ length: p.n }, (_, i) => ({ id: p.id + (i + 1), plant: p, num: i + 1 })));
+const POSITIONS = [
+  { id: "V_P4", plant: PLANTS[0], title: "Поз. 4 Цех 1" },
+  { id: "V_P5", plant: PLANTS[0], title: "Поз. 5 Цех 2" },
+  { id: "V_P66", plant: PLANTS[0], title: "Поз. 66 Цех 3" },
+  { id: "V_P9", plant: PLANTS[0], title: "Поз. 9 БПГ" },
+  { id: "V_P140", plant: PLANTS[0], title: "Поз. 140 БПГ" },
+  { id: "V_P7", plant: PLANTS[0], title: "Поз. 7 АВО" },
+  { id: "V_P8", plant: PLANTS[0], title: "Поз. 8 АВО" },
+  { id: "V_P33", plant: PLANTS[0], title: "Поз. 33 АВО" },
+  { id: "V_P64", plant: PLANTS[0], title: "Поз. 64 АВО" },
+  { id: "V_P65", plant: PLANTS[0], title: "Поз. 65 АВО" },
+  { id: "V_OTHER", plant: PLANTS[0], title: "Остальные позиции" },
+  { id: "S_P2", plant: PLANTS[1], title: "Поз. 2 БПГ (С)" },
+  { id: "S_P3", plant: PLANTS[1], title: "Поз. 3 Цех сепарации" },
+  { id: "S_OTHER", plant: PLANTS[1], title: "Остальные позиции" },
+];
 const gpaById = id => GPAS.find(g => g.id === id);
+const positionById = id => POSITIONS.find(p => p.id === id);
+const locationById = id => gpaById(id) || positionById(id);
+const locationTitle = location => location.num ? `${location.plant.title} · ГПА-${location.num}` : `${location.plant.title} · ${location.title}`;
 const LIMIT = 2.8;
 
 // ---------- Иконки ----------
@@ -222,6 +282,7 @@ const I = {
   drop: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
   gauge: '<path d="M12 14l4-4"/><path d="M3.5 18a9 9 0 1 1 17 0"/>',
   note: '<path d="M4 4h16v12l-4 4H4z"/><path d="M8 9h8M8 13h5"/>',
+  report: '<path d="M6 2h9l4 4v16H6z"/><path d="M14 2v6h5M9 13h6M9 17h6"/>',
   save: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7M8 21v-7h8v7"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
@@ -245,7 +306,7 @@ const dt = ts => { const d = new Date(ts); return `${pad(d.getDate())}.${pad(d.g
 const hm = ts => { const d = new Date(ts); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const dShort = ts => { const d = new Date(ts); return `${pad(d.getDate())}.${pad(d.getMonth() + 1)} ${hm(ts)}`; };
 const isToday = ts => new Date(ts).toDateString() === new Date().toDateString();
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 // ---------- Хранилище (IndexedDB, запасной вариант — память) ----------
 let S = { readings: [], hangarPhotos: [], hangarNotes: {}, remarks: [] };
@@ -309,15 +370,16 @@ async function addFiles(files) {
 }
 
 // ---------- Состояние интерфейса ----------
-const EMPTY_FORM = () => ({ c: ["", "", "", "", ""], mskOil: "", mskDiff: "", engOil: "", pB: "", pA: "", note: "" });
+const EMPTY_FORM = () => ({ c: ["", "", "", "", ""], mskOil: "", mskDiff: "", sgu1: "", sgu2: "", engOil: "", pB: "", pA: "", note: "" });
 let view = { name: "home" };
 let form = EMPTY_FORM(), curId = null, formGpa = null, saveT = null;
 const ROUND_MS = 60 * 60 * 1000;          // ввод в течение часа — одна запись обхода
 const roundStart = {};                    // gpaId → время нажатия «Новая запись»
 let remarkDraft = null;
+let reportBusy = false;
 const app = document.getElementById("app");
 
-const NUM_KEYS = ["mskOil", "mskDiff", "engOil", "pB", "pA"];
+const NUM_KEYS = ["mskOil", "mskDiff", "sgu1", "sgu2", "engOil", "pB", "pA"];
 const latestFor = id => S.readings.filter(r => r.gpaId === id).sort((a, b) => b.ts - a.ts)[0];
 const rDev = r => r && r.c && r.c.some(isDev);
 // Открытая (текущая) запись обхода: последняя, созданная меньше часа назад.
@@ -339,7 +401,7 @@ const gpaDev = gid => knownValues(gid, null).c.some(isDev);
 let prev = { c: [] };   // серые подсказки на экране ГПА
 function loadForm(gid) {
   const o = openRecord(gid); curId = o ? o.id : null; formGpa = gid;
-  form = o ? { c: o.c.map(fmt), mskOil: fmt(o.mskOil), mskDiff: fmt(o.mskDiff), engOil: fmt(o.engOil), pB: fmt(o.pB), pA: fmt(o.pA), note: o.note || "" } : EMPTY_FORM();
+  form = o ? { c: o.c.map(fmt), mskOil: fmt(o.mskOil), mskDiff: fmt(o.mskDiff), sgu1: fmt(o.sgu1), sgu2: fmt(o.sgu2), engOil: fmt(o.engOil), pB: fmt(o.pB), pA: fmt(o.pA), note: o.note || "" } : EMPTY_FORM();
   prev = knownValues(gid, curId);
 }
 // Автосохранение
@@ -391,9 +453,16 @@ function showA2hs() {
 }
 
 // ---------- Экран: главная ----------
+function positionTile(title, id = null, menu = false) {
+  const attrs = menu ? `data-position="${id}"` : id ? `data-act="position" data-id="${id}"` : `data-act="positions"`;
+  const rm = id ? openRemarks(id) : 0;
+  return `<button class="tile position" ${attrs}><span class="t"><small>ПОЗИЦИИ</small><b>${esc(title)}</b></span>
+    <span class="when">Замечания и фото</span>${rm ? `<span class="rm">Замечаний: ${rm}</span>` : ""}</button>`;
+}
 function renderHome() {
   const day = new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
-  let h = `<header class="top"><div class="grow"><h1>Обход ДКС</h1><div class="sub">${esc(day[0].toUpperCase() + day.slice(1))}</div></div></header><main>`;
+  let h = `<header class="top"><div class="grow"><h1>Обход ДКС</h1><div class="sub">${esc(day[0].toUpperCase() + day.slice(1))}</div></div>
+    <button class="hdr-btn" data-act="global-report" ${reportBusy ? "disabled" : ""}>${ic("report")}${reportBusy ? "Создаю…" : "Отчёт PDF"}</button></header><main><button class="btn tonal cyl-home-btn" data-act="all-cylinders">Все баллоны</button>`;
   if (showA2hs()) h += `<div class="a2hs"><span>Чтобы работало без интернета: «Поделиться» → «На экран „Домой“»</span><button class="icon-btn" data-act="a2hs-close" aria-label="Скрыть">${ic("x")}</button></div>`;
   if (!storageOk) h += `<div class="warn">Браузер не даёт сохранять данные (возможно, включён частный режим). Записи пропадут после закрытия страницы.</div>`;
   for (const p of PLANTS) {
@@ -407,10 +476,100 @@ function renderHome() {
         <span class="when">${!l ? "нет записей" : today ? "сегодня " + hm(l.ts) : dShort(l.ts)}</span>
         ${dev ? `<span class="badge">ОТКЛОНЕНИЕ</span>` : ""}${rm ? `<span class="rm">Замечаний: ${rm}</span>` : ""}</button>`;
     }
+    if (p.id === "V") h += positionTile("Позиции Валанжин");
+    else for (const position of POSITIONS.filter(x => x.plant === p)) h += positionTile(position.title, position.id);
     h += `</div>`;
   }
   h += `<p class="hint">Данные хранятся только в этом браузере на этом телефоне.</p></main>`;
   app.innerHTML = h;
+}
+
+function showValanzhinPositions() {
+  const bg = document.createElement("div"); bg.className = "modal-bg";
+  bg.innerHTML = `<div class="modal position-menu" role="dialog" aria-modal="true" aria-labelledby="positions-title">
+    <h2 id="positions-title" style="margin:0">Позиции Валанжин</h2>
+    <div class="tiles">${POSITIONS.filter(p => p.plant.id === "V").map(p => positionTile(p.title, p.id, true)).join("")}</div>
+    <button class="btn ghost" data-close>Закрыть</button></div>`;
+  const onKey = e => { if (e.key === "Escape") close(); };
+  const close = () => { document.removeEventListener("keydown", onKey); bg.remove(); };
+  bg.addEventListener("click", e => {
+    const id = e.target.closest("[data-position]")?.dataset.position;
+    if (id) { close(); go({ name: "position", id }); return; }
+    if (e.target === bg || e.target.closest("[data-close]")) close();
+  });
+  document.addEventListener("keydown", onKey);
+  document.body.appendChild(bg); bg.querySelector("[data-position]").focus();
+}
+
+function showGlobalReportPicker() {
+  const groups = [...GPAS, ...POSITIONS].map(location => ({
+    location,
+    remarks: S.remarks.filter(r => r.gpaId === location.id).sort((a, b) => (a.resolved - b.resolved) || b.ts - a.ts),
+  })).filter(g => g.remarks.length);
+  const total = groups.reduce((sum, g) => sum + g.remarks.length, 0);
+  if (!total) { toast("Нет замечаний для отчёта"); return; }
+  const selected = new Set(groups.flatMap(g => g.remarks.map(r => r.id)));
+  const bg = document.createElement("div"); bg.className = "modal-bg";
+  bg.innerHTML = `<div class="modal report-picker" role="dialog" aria-modal="true" aria-labelledby="report-picker-title">
+    <div><h2 id="report-picker-title" style="margin:0">Общий отчёт PDF</h2><div class="hint">Снимите галочки с замечаний, которые не нужно включать.</div></div>
+    <div class="row report-tools"><button class="btn ghost" data-picker="all">Выбрать все</button><button class="btn ghost" data-picker="none">Снять все</button></div>
+    <div class="report-selection-summary" data-selection-summary></div>
+    <div class="report-picker-list">${groups.map(g => `<section><div class="report-picker-group"><span>${esc(locationTitle(g.location))}</span><span data-group-count="${g.location.id}"></span></div>${g.remarks.map(r => `<label class="report-choice"><input type="checkbox" data-report-remark="${r.id}" checked><span class="report-choice-text"><span class="report-choice-description">${esc(r.text.trim() || "(без описания)")}</span><span class="report-choice-meta">${dt(r.ts)} · ${r.resolved ? "Устранено" : "Открыто"}${r.photos.length ? ` · фото: ${r.photos.length}` : ""}</span></span></label>`).join("")}</section>`).join("")}</div>
+    <div class="row report-actions"><button class="btn ghost" data-picker="close">Отмена</button><button class="btn primary" data-picker="create"></button></div></div>`;
+  const updateSummary = () => {
+    bg.querySelector("[data-selection-summary]").textContent = `Выбрано: ${selected.size} из ${total}`;
+    const create = bg.querySelector('[data-picker="create"]');
+    create.textContent = `Создать PDF (${selected.size})`;
+    create.disabled = !selected.size;
+    for (const g of groups) {
+      const count = g.remarks.filter(r => selected.has(r.id)).length;
+      bg.querySelector(`[data-group-count="${g.location.id}"]`).textContent = `${count}/${g.remarks.length}`;
+    }
+  };
+  const onKey = e => { if (e.key === "Escape") close(); };
+  const close = () => { document.removeEventListener("keydown", onKey); bg.remove(); };
+  bg.addEventListener("change", e => {
+    const id = e.target.dataset.reportRemark;
+    if (!id) return;
+    if (e.target.checked) selected.add(id); else selected.delete(id);
+    updateSummary();
+  });
+  bg.addEventListener("click", e => {
+    const action = e.target.closest("[data-picker]")?.dataset.picker;
+    if (e.target === bg || action === "close") { close(); return; }
+    if (action === "all" || action === "none") {
+      selected.clear();
+      const check = action === "all";
+      bg.querySelectorAll("[data-report-remark]").forEach(input => {
+        input.checked = check;
+        if (check) selected.add(input.dataset.reportRemark);
+      });
+      updateSummary();
+    }
+    if (action === "create" && selected.size) {
+      close();
+      createRemarksReport(true, selected);
+    }
+  });
+  document.addEventListener("keydown", onKey);
+  document.body.appendChild(bg);
+  updateSummary();
+  bg.querySelector("[data-report-remark]").focus();
+}
+
+function showAllCylinders() {
+  const rows = GPAS.filter(g => g.plant.cyl).map(g => {
+    const values = knownValues(g.id, null).c;
+    return `<tr><td>ГПА-${g.num}</td>${values.map(v => `<td class="${isDev(v) ? "dev" : ""}">${dash(v)}</td>`).join("")}</tr>`;
+  }).join("");
+  const bg = document.createElement("div"); bg.className = "modal-bg";
+  bg.innerHTML = `<div class="modal cyl-modal" role="dialog" aria-modal="true" aria-labelledby="cyl-title">
+    <div><h2 id="cyl-title" style="margin:0">Все баллоны</h2><div class="hint">Валанжин · последние показания</div></div>
+    <table class="cyl-table"><thead><tr><th>ГПА</th><th>№1</th><th>№2</th><th>№3</th><th>№4</th><th>№5</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="row"><button class="btn ghost" data-close>Закрыть</button></div></div>`;
+  const close = () => bg.remove();
+  bg.addEventListener("click", e => { if (e.target === bg || e.target.closest("[data-close]")) close(); });
+  document.body.appendChild(bg); bg.querySelector("[data-close]").focus();
 }
 
 // ---------- Экран: ГПА ----------
@@ -456,11 +615,12 @@ function renderGpa() {
     }
     const d = diffVal();
     h += `<section class="card"><div class="card-h"><span class="ico">${ic("drop")}</span>Компрессор (МСК)</div>
-      <div class="grid2">${nf("mskOil", "Уровень масла")}${nf("mskDiff", "Перепад на фильтрах", { neg: true })}</div></section>
+      <div class="grid2">${nf("mskOil", "Уровень масла")}${nf("mskDiff", "Перепад на фильтрах", { neg: true, auto: true })}</div>
+      ${g.plant.cyl ? `<div class="grid2">${nf("sgu1", "Утечки СГУ-1")}${nf("sgu2", "Утечки СГУ-2")}</div>` : ""}</section>
       <section class="card"><div class="card-h"><span class="ico">${ic("gauge")}</span>Двигатель</div>
       ${nf("engOil", "Уровень в маслобаке двигателя")}
-      <div class="hint">Давление на фильтрах</div>
-      <div class="grid3">${nf("pB", "До")}${nf("pA", "После")}<div class="diff"><small>Перепад</small><b class="num" id="diff">${d == null ? "—" : fmt(d)}</b></div></div></section>
+      ${g.plant.cyl ? `<div class="hint">Давление на фильтрах</div>
+      <div class="grid3">${nf("pB", "До", { auto: true })}${nf("pA", "После", { auto: true })}<div class="diff"><small>Перепад</small><b class="num" id="diff">${d == null ? "—" : fmt(d)}</b></div></div>` : ""}</section>
       <section class="card"><div class="card-h"><span class="ico">${ic("note")}</span>Примечание</div>
       <textarea id="f-note" rows="2" data-txt="note" placeholder="Необязательно">${esc(form.note)}</textarea></section></main>`;
   } else if (tab === "h") {
@@ -471,12 +631,14 @@ function renderGpa() {
         <button class="icon-btn" data-act="rdel" data-id="${r.id}" aria-label="Удалить">${ic("trash")}</button></div>
         ${g.plant.cyl ? `<div class="chips">${r.c.map((v, i) => `<span class="chip num ${isDev(v) ? "bad" : ""}">№${i + 1}: ${dash(v)}</span>`).join("")}</div>` : ""}
         <div class="kv"><span>МСК:</span> уровень <b class="num">${dash(r.mskOil)}</b>, перепад <b class="num">${dash(r.mskDiff)}</b></div>
+        ${g.plant.cyl ? `<div class="kv"><span>Утечки СГУ:</span> №1 <b class="num">${dash(r.sgu1)}</b>, №2 <b class="num">${dash(r.sgu2)}</b></div>` : ""}
         <div class="kv"><span>Двигатель:</span> уровень <b class="num">${dash(r.engOil)}</b></div>
-        <div class="kv"><span>Фильтры:</span> до <b class="num">${dash(r.pB)}</b> / после <b class="num">${dash(r.pA)}</b> → перепад <b class="num">${dash(diff)}</b></div>
+        ${g.plant.cyl ? `<div class="kv"><span>Фильтры:</span> до <b class="num">${dash(r.pB)}</b> / после <b class="num">${dash(r.pA)}</b> → перепад <b class="num">${dash(diff)}</b></div>` : ""}
         ${r.note ? `<div class="kv"><span>Примечание:</span> ${esc(r.note)}</div>` : ""}</article>`;
     }
     h += `</main>`;
   } else {
+    h += `<button class="btn tonal" data-act="gpa-report" ${!rms.length || reportBusy ? "disabled" : ""}>${ic("report")}${reportBusy ? "Создаю PDF…" : "Создать отчёт PDF"}</button>`;
     if (!rms.length) h += `<div class="empty">Замечаний нет. Нажмите «Замечание», чтобы добавить.</div>`;
     for (const r of rms) {
       h += `<button class="remark ${r.resolved ? "done" : ""}" data-act="remark" data-id="${r.id}"><span class="rh">${dt(r.ts)}<span class="st">${r.resolved ? "Устранено" : "Открыто"}</span></span>
@@ -488,6 +650,23 @@ function renderGpa() {
   hydrate();
 }
 
+// ---------- Экран: замечания позиции ----------
+function renderPosition() {
+  const position = positionById(view.id);
+  const rms = S.remarks.filter(r => r.gpaId === position.id).sort((a, b) => (a.resolved - b.resolved) || b.ts - a.ts);
+  let h = `<header class="top"><button class="icon-btn" data-act="back" aria-label="Назад">${ic("back")}</button>
+    <div class="grow"><h1>${esc(position.title)}</h1><div class="sub">${position.plant.title}</div></div></header><main>
+    <button class="btn tonal" data-act="position-report" ${!rms.length || reportBusy ? "disabled" : ""}>${ic("report")}${reportBusy ? "Создаю PDF…" : "Создать отчёт PDF"}</button>`;
+  if (!rms.length) h += `<div class="empty">Замечаний нет. Нажмите «Замечание», чтобы добавить.</div>`;
+  for (const r of rms) {
+    h += `<button class="remark ${r.resolved ? "done" : ""}" data-act="remark" data-id="${r.id}"><span class="rh">${dt(r.ts)}<span class="st">${r.resolved ? "Устранено" : "Открыто"}</span></span>
+      <p>${esc(r.text) || "(без описания)"}</p>${r.photos.length ? `<span class="thumbs">${r.photos.map(p => `<img alt="" data-photo="${p}">`).join("")}</span>` : ""}</button>`;
+  }
+  h += `</main><button class="fab" data-act="remark" data-id="">${ic("plus")}Замечание</button>`;
+  app.innerHTML = h;
+  hydrate();
+}
+
 // ---------- Экран: ангар ----------
 function renderHangar() {
   const g = gpaById(view.id);
@@ -495,7 +674,7 @@ function renderHangar() {
   app.innerHTML = `<header class="top"><button class="icon-btn" data-act="back" aria-label="Назад">${ic("back")}</button>
     <div class="grow"><h1>Ангар · ГПА-${g.num}</h1><div class="sub">${g.plant.title}</div></div></header><main>
     <section class="card"><div class="card-h"><span class="ico">${ic("note")}</span>Что лежит в ангаре</div>
-    <textarea id="hangar-note" rows="4" data-hnote="1" placeholder="Например: 2 фильтра МСК, ветошь, ключи…">${esc(S.hangarNotes[g.id] || "")}</textarea>
+    <textarea id="hangar-note" rows="4" data-hnote="1" placeholder="Например: 2 фильтры МСК, ветошь, ключи…">${esc(S.hangarNotes[g.id] || "")}</textarea>
     <span class="hint">Сохраняется автоматически</span></section>
     <div class="row">${photoButtons("hangar")}</div>
     <h3 class="sec-title">${ph.length ? "Фото: " + ph.length : "Фото пока нет"}</h3>
@@ -509,18 +688,36 @@ function photoButtons(target) {
 
 // ---------- Экран: замечание ----------
 function renderRemark() {
-  const g = gpaById(view.id), d = remarkDraft;
+  const location = locationById(view.id), d = remarkDraft;
   app.innerHTML = `<header class="top"><button class="icon-btn" data-act="back" aria-label="Назад">${ic("back")}</button>
-    <div class="grow"><h1>${d.id ? "Замечание" : "Новое замечание"}</h1><div class="sub">${g.plant.title} · ГПА-${g.num} · ${dt(d.ts)}</div></div>
+    <div class="grow"><h1>${d.id ? "Замечание" : "Новое замечание"}</h1><div class="sub">${locationTitle(location)} · ${dt(d.ts)}</div></div>
     ${d.id ? `<button class="icon-btn" data-act="rmdel" aria-label="Удалить">${ic("trash")}</button>` : ""}</header><main>
     <section class="card"><label class="hint" for="rm-text">Описание замечания</label>
     <textarea id="rm-text" rows="5" data-rmtext="1">${esc(d.text)}</textarea>
     <label class="check"><input type="checkbox" id="rm-res" data-rmres="1" ${d.resolved ? "checked" : ""}>Устранено</label></section>
     <div class="row">${photoButtons("remark")}</div>
     ${d.photos.length ? `<h3 class="sec-title">Фото: ${d.photos.length}</h3><div class="pgrid">${d.photos.map(p => `<figure><img alt="" data-photo="${p}" data-act="rmview" data-id="${p}"></figure>`).join("")}</div>` : ""}
-    </main><div class="savebar"><div class="in"><button class="btn primary" data-act="rmsave">${ic("save")}Сохранить замечание</button></div></div>`;
+    </main><div class="savebar"><div class="in easter-save"><button class="btn primary" data-act="rmsave">${ic("save")}Сохранить замечание</button><span class="easter-trigger" data-act="easter-open" role="link" tabindex="0">Здесь фото и видео фиксация запрещена, пошел в пизду</span></div></div>`;
   hydrate();
 }
+const EASTER_TEXT = "Здесь фото и видео фиксация запрещена, пошел в пизду";
+function showEasterEgg() {
+  const bg = document.createElement("div"); bg.className = "modal-bg";
+  bg.innerHTML = `<div class="modal easter-modal" role="dialog" aria-modal="true" aria-label="${EASTER_TEXT}"><div class="easter-large">${EASTER_TEXT}</div><button class="btn primary" data-k="meaning">В смысле?</button></div>`;
+  bg.addEventListener("click", e => {
+    if (e.target === bg) { bg.remove(); return; }
+    if (!e.target.closest('[data-k="meaning"]')) return;
+    bg.remove();
+    const final = document.createElement("div"); final.className = "easter-final"; final.textContent = "В прямом!";
+    document.body.appendChild(final);
+    setTimeout(() => {
+      window.close();
+      if (final.isConnected) window.location.replace("about:blank");
+    }, 5000);
+  });
+  document.body.appendChild(bg); bg.querySelector('[data-k="meaning"]').focus();
+}
+
 function openRemark(id) {
   const r = id ? S.remarks.find(x => x.id === id) : null;
   remarkDraft = r ? { ...r, photos: [...r.photos], added: [], removed: [] } : { id: null, gpaId: view.id, ts: Date.now(), text: "", resolved: false, photos: [], added: [], removed: [] };
@@ -532,25 +729,359 @@ function remarkDirty() {
   const r = d.id && S.remarks.find(x => x.id === d.id);
   return r ? r.text !== d.text || r.resolved !== d.resolved : d.text.trim() !== "";
 }
-function leaveRemark() { remarkDraft.added.forEach(delPhoto); remarkDraft = null; go({ name: "gpa", id: view.id, tab: "m" }); }
+const remarkParent = id => positionById(id) ? { name: "position", id } : { name: "gpa", id, tab: "m" };
+function leaveRemark() { remarkDraft.added.forEach(delPhoto); remarkDraft = null; go(remarkParent(view.id)); }
+function replaceRemarkPhoto(oldId, newId) {
+  const d = remarkDraft;
+  d.photos = d.photos.map(x => x === oldId ? newId : x);
+  if (d.added.includes(oldId)) { d.added = d.added.filter(x => x !== oldId); delPhoto(oldId); }
+  else d.removed.push(oldId);
+  d.added.push(newId);
+  render();
+}
 
 // ---------- Просмотр фото ----------
-function viewer(photoId, { onDelete, caption, onCaption } = {}) {
+function viewer(photoId, { onDelete, onEdit, caption, onCaption } = {}) {
   const o = document.createElement("div"); o.className = "overlay"; o.setAttribute("role", "dialog");
-  o.innerHTML = `<div class="ob"><button class="icon-btn" data-k="close" aria-label="Закрыть">${ic("x")}</button>${onDelete ? `<button class="icon-btn" data-k="del" aria-label="Удалить">${ic("trash")}</button>` : ""}</div>
+  o.innerHTML = `<div class="ob"><button class="icon-btn" data-k="close" aria-label="Закрыть">${ic("x")}</button><div class="row">${onEdit ? `<button class="icon-btn" data-k="edit" aria-label="Отметить дефект">${ic("edit")}</button>` : ""}${onDelete ? `<button class="icon-btn" data-k="del" aria-label="Удалить">${ic("trash")}</button>` : ""}</div></div>
     <div class="img"><img alt="" data-photo="${photoId}"></div>${onCaption ? `<div class="cap"><input id="cap-input" placeholder="Подпись к фото" value="${esc(caption || "")}"></div>` : ""}`;
   const close = () => { if (onCaption) { const v = o.querySelector("#cap-input").value; if (v !== (caption || "")) onCaption(v); } o.remove(); };
   o.addEventListener("click", e => {
     const k = e.target.closest("[data-k]")?.dataset.k;
     if (k === "close") close();
+    if (k === "edit") { close(); onEdit(); }
     if (k === "del") confirmBox("Удалить это фото?", "Удалить", () => { o.remove(); onDelete(); });
   });
   document.body.appendChild(o); hydrate(o);
 }
 
+// Редактор замечаний: круги наносятся на отдельную копию фотографии.
+async function photoEditor(photoId, { onSaved }) {
+  const blob = await getPhoto(photoId);
+  if (!blob) { toast("Фотография не найдена"); return; }
+  const o = document.createElement("div"); o.className = "overlay";
+  o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-label", "Отметить дефект на фото");
+  o.innerHTML = `<div class="ob"><button class="icon-btn" data-k="close" aria-label="Закрыть">${ic("x")}</button><strong style="flex:1;align-self:center">Отметить дефект</strong><button class="hdr-btn" data-k="save" disabled>${ic("save")}Сохранить</button></div>
+    <div class="annotate-stage"><canvas aria-label="Фото для разметки"></canvas></div>
+    <div class="annotate-tools"><label for="circle-size">Размер круга: <b data-k="size-label">12%</b></label>
+    <input id="circle-size" data-k="size" type="range" min="3" max="35" value="12" step="1">
+    <div class="row"><button class="btn ghost" data-k="undo" disabled>Удалить последний круг</button><span data-k="count">Кругов: 0</span></div>
+    <div class="hint">Коснитесь фото, чтобы добавить круг. Можно добавить несколько кругов.</div></div>`;
+  document.body.appendChild(o);
+  const canvas = o.querySelector("canvas"), stage = o.querySelector(".annotate-stage");
+  const saveBtn = o.querySelector('[data-k="save"]'), undoBtn = o.querySelector('[data-k="undo"]');
+  const sizeInput = o.querySelector('[data-k="size"]'), count = o.querySelector('[data-k="count"]');
+  const ctx = canvas.getContext("2d"), circles = [], url = URL.createObjectURL(blob), im = new Image();
+  let closed = false, saving = false;
+  const draw = () => {
+    ctx.drawImage(im, 0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#ff2222"; ctx.lineWidth = Math.max(4, Math.min(canvas.width, canvas.height) * .006);
+    const m = Math.min(canvas.width, canvas.height);
+    circles.forEach(c => { ctx.beginPath(); ctx.arc(c.x * canvas.width, c.y * canvas.height, c.r * m, 0, Math.PI * 2); ctx.stroke(); });
+  };
+  const layout = () => {
+    if (!im.naturalWidth) return;
+    const k = Math.min((stage.clientWidth - 16) / im.naturalWidth, (stage.clientHeight - 16) / im.naturalHeight, 1);
+    canvas.style.width = Math.max(1, Math.round(im.naturalWidth * k)) + "px";
+    canvas.style.height = Math.max(1, Math.round(im.naturalHeight * k)) + "px";
+  };
+  const close = () => {
+    if (closed || saving) return;
+    closed = true; window.removeEventListener("resize", layout); document.removeEventListener("keydown", keys);
+    URL.revokeObjectURL(url); o.remove();
+  };
+  const keys = e => { if (e.key === "Escape") close(); };
+  im.onload = () => {
+    canvas.width = im.naturalWidth; canvas.height = im.naturalHeight;
+    draw(); layout(); saveBtn.disabled = false;
+  };
+  im.onerror = () => { toast("Не удалось открыть фотографию"); close(); };
+  im.src = url;
+  window.addEventListener("resize", layout); document.addEventListener("keydown", keys);
+  canvas.addEventListener("pointerdown", e => {
+    if (saving || !im.naturalWidth) return;
+    e.preventDefault();
+    const r = canvas.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    if (x < 0 || x > 1 || y < 0 || y > 1) return;
+    circles.push({ x, y, r: Number(sizeInput.value) / 100 });
+    count.textContent = `Кругов: ${circles.length}`; undoBtn.disabled = false; draw();
+  });
+  sizeInput.addEventListener("input", () => { o.querySelector('[data-k="size-label"]').textContent = sizeInput.value + "%"; });
+  o.addEventListener("click", async e => {
+    const k = e.target.closest("[data-k]")?.dataset.k;
+    if (k === "close") close();
+    if (k === "undo" && circles.length && !saving) {
+      circles.pop(); count.textContent = `Кругов: ${circles.length}`; undoBtn.disabled = !circles.length; draw();
+    }
+    if (k === "save" && im.naturalWidth && !saving) {
+      if (!circles.length) { toast("Добавьте хотя бы один круг"); return; }
+      saving = true; saveBtn.disabled = true; undoBtn.disabled = true;
+      const out = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", .92));
+      if (!out) { saving = false; saveBtn.disabled = false; undoBtn.disabled = !circles.length; toast("Не удалось сохранить фото"); return; }
+      const newId = "p" + uid(); await putPhoto(newId, out);
+      closed = true; window.removeEventListener("resize", layout); document.removeEventListener("keydown", keys);
+      URL.revokeObjectURL(url); o.remove(); onSaved(newId);
+    }
+  });
+}
+
+// ---------- PDF-отчёты по замечаниям (полностью офлайн) ----------
+// Страницы сначала рисуются на canvas: так русский текст не требует встраивания шрифтов в PDF.
+const REPORT_W = 1240, REPORT_H = 1754, REPORT_MARGIN = 82, REPORT_BOTTOM = 1640;
+const REPORT_CONTENT_W = REPORT_W - REPORT_MARGIN * 2;
+
+class CanvasReport {
+  constructor() {
+    this.pages = []; this.pageNo = 0; this.canvas = null; this.y = REPORT_MARGIN;
+    this.slot = 0; this.gridTop = REPORT_MARGIN; this.currentGroup = "";
+  }
+  async startPage() {
+    this.pageNo++;
+    this.canvas = document.createElement("canvas");
+    this.canvas.width = REPORT_W; this.canvas.height = REPORT_H;
+    this.ctx = this.canvas.getContext("2d");
+    this.ctx.fillStyle = "#fff"; this.ctx.fillRect(0, 0, REPORT_W, REPORT_H);
+    this.y = REPORT_MARGIN; this.slot = 0;
+    if (this.pageNo > 1) {
+      this.ctx.font = '20px "IBM Plex Sans", sans-serif'; this.ctx.fillStyle = "#6b7785";
+      this.ctx.fillText("Отчёт по замечаниям · продолжение", REPORT_MARGIN, this.y + 20);
+      this.y += 46;
+    }
+  }
+  async flushPage() {
+    if (!this.canvas) return;
+    this.ctx.font = '20px "IBM Plex Sans", sans-serif'; this.ctx.fillStyle = "#6b7785";
+    this.ctx.fillText(`Обход ДКС · стр. ${this.pageNo}`, REPORT_MARGIN, REPORT_H - 42);
+    const canvas = this.canvas;
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", .9));
+    if (!blob) throw new Error("Не удалось подготовить страницу PDF");
+    this.pages.push({ blob, width: REPORT_W, height: REPORT_H });
+    this.canvas.width = this.canvas.height = 1;
+    this.canvas = null; this.ctx = null;
+  }
+  async ensure(height) {
+    if (!this.canvas) await this.startPage();
+    if (this.y + height > REPORT_BOTTOM && this.y > REPORT_MARGIN + 1) {
+      await this.flushPage(); await this.startPage();
+    }
+  }
+  wrapLines(text, font, width) {
+    this.ctx.font = font;
+    const lines = [];
+    for (const raw of String(text).split("\n")) {
+      let rest = raw.trim();
+      if (!rest) { lines.push(""); continue; }
+      while (rest) {
+        let lo = 1, hi = rest.length;
+        while (lo < hi) {
+          const mid = Math.ceil((lo + hi) / 2);
+          if (this.ctx.measureText(rest.slice(0, mid)).width <= width) lo = mid; else hi = mid - 1;
+        }
+        let count = lo;
+        if (count < rest.length) {
+          const space = rest.lastIndexOf(" ", count);
+          if (space > 0) count = space;
+        }
+        lines.push(rest.slice(0, count).trimEnd());
+        rest = rest.slice(count).trimStart();
+      }
+    }
+    return lines;
+  }
+  textBlock(text, { size = 21, bold = false, color = "#16212c", line = null, gap = 10 } = {}, width) {
+    const lineHeight = line || Math.round(size * 1.4);
+    const font = `${bold ? "700" : "400"} ${size}px "IBM Plex Sans", sans-serif`;
+    const lines = this.wrapLines(text, font, width);
+    return { kind: "text", lines, size, color, font, line: lineHeight, gap, height: lines.length * lineHeight + gap };
+  }
+  async paragraph(text, options = {}) {
+    if (!this.canvas) await this.startPage();
+    const size = options.size || 24, lineHeight = options.line || Math.round(size * 1.4);
+    const block = this.textBlock(text, { size, ...options }, REPORT_CONTENT_W - (options.indent || 0));
+    for (const line of block.lines) {
+      await this.ensure(lineHeight);
+      this.ctx.font = block.font; this.ctx.fillStyle = block.color;
+      if (line) this.ctx.fillText(line, REPORT_MARGIN + (options.indent || 0), this.y + size);
+      this.y += lineHeight;
+    }
+    this.y += options.gap == null ? 12 : options.gap;
+  }
+  async groupTitle(text) {
+    // Новый участок начинается с отдельной сетки, не смешивая его с предыдущим.
+    if (this.slot > 0) { await this.flushPage(); await this.startPage(); }
+    this.currentGroup = text;
+    await this.drawGroupTitle(text);
+  }
+  async drawGroupTitle(text) {
+    await this.ensure(78);
+    this.ctx.fillStyle = "#d6e4f2";
+    this.ctx.fillRect(REPORT_MARGIN, this.y, REPORT_CONTENT_W, 60);
+    this.y += 10;
+    await this.paragraph(text, { size: 29, bold: true, color: "#1f4e79", line: 40, gap: 18, indent: 16 });
+    this.gridTop = this.y; this.slot = 0;
+  }
+  async remark(item, number) {
+    if (this.slot >= 4) {
+      await this.flushPage(); await this.startPage();
+      await this.drawGroupTitle(`${this.currentGroup} · продолжение`);
+    }
+    const gap = 24, cellW = (REPORT_CONTENT_W - gap) / 2;
+    const cellH = (REPORT_BOTTOM - this.gridTop - gap) / 2;
+    const left = REPORT_MARGIN + (this.slot % 2) * (cellW + gap);
+    const top = this.gridTop + Math.floor(this.slot / 2) * (cellH + gap);
+    const pad = 18, contentW = cellW - pad * 2, contentH = cellH - pad * 2;
+    const blocks = [
+      this.textBlock(`Замечание №${number} · ${dt(item.ts)}`, { size: 22, bold: true, line: 30, gap: 5 }, contentW),
+      this.textBlock(item.resolved ? "Статус: УСТРАНЕНО" : "Статус: ОТКРЫТО", {
+        size: 20, bold: true, color: item.resolved ? "#2e7d32" : "#d32f2f", line: 28, gap: 10,
+      }, contentW),
+      this.textBlock(`Пояснение: ${item.text.trim() || "без описания"}`, { size: 21, line: 29, gap: 14 }, contentW),
+    ];
+    if (!item.photos.length) {
+      blocks.push(this.textBlock("Фотографии отсутствуют.", { size: 18, color: "#6b7785", line: 25, gap: 0 }, contentW));
+    } else {
+      for (let i = 0; i < item.photos.length; i++) blocks.push(await this.photoBlock(item.photos[i], i + 1, item.photos.length, contentW));
+    }
+    // Масштабируем содержимое ячейки целиком: весь текст и все фото остаются в PDF.
+    const naturalHeight = blocks.reduce((sum, block) => sum + block.height, 0) || 1;
+    const scale = Math.min(1, contentH / naturalHeight);
+    this.ctx.fillStyle = "#f1f4f7"; this.ctx.fillRect(left, top, cellW, cellH);
+    this.ctx.save();
+    this.ctx.beginPath(); this.ctx.rect(left + 1, top + 1, cellW - 2, cellH - 2); this.ctx.clip();
+    this.ctx.translate(left + pad, top + pad); this.ctx.scale(scale, scale);
+    let y = 0;
+    for (const block of blocks) {
+      if (block.kind === "text") {
+        this.ctx.font = block.font; this.ctx.fillStyle = block.color;
+        for (const line of block.lines) {
+          if (line) this.ctx.fillText(line, 0, y + block.size);
+          y += block.line;
+        }
+        y += block.gap;
+      } else {
+        this.ctx.drawImage(block.img, 0, y, block.w, block.h);
+        this.ctx.strokeStyle = "#cfd8e2"; this.ctx.lineWidth = 2; this.ctx.strokeRect(0, y, block.w, block.h);
+        y += block.h + 8;
+        this.ctx.font = '18px "IBM Plex Sans", sans-serif'; this.ctx.fillStyle = "#6b7785";
+        this.ctx.fillText(block.caption, 0, y + 18); y += 32;
+      }
+    }
+    this.ctx.restore();
+    this.slot++;
+  }
+  async photoBlock(photoId, number, total, width) {
+    const caption = `Фото ${number} из ${total}`;
+    const blob = await getPhoto(photoId);
+    if (!blob) return this.textBlock(`${caption}: файл не найден.`, { size: 18, color: "#6b7785", gap: 12 }, width);
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const im = new Image(); im.onload = () => resolve(im); im.onerror = reject; im.src = url;
+      });
+      const scale = Math.min(width / img.naturalWidth, 190 / img.naturalHeight, 1);
+      const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
+      return { kind: "photo", img, w, h, caption, height: h + 40 };
+    } catch (e) {
+      return this.textBlock(`${caption}: не удалось открыть.`, { size: 18, color: "#6b7785", gap: 12 }, width);
+    } finally { URL.revokeObjectURL(url); }
+  }
+  async finish() { await this.flushPage(); return this.pages; }
+}
+
+function pdfBytes(text) { return Uint8Array.from(text, c => c.charCodeAt(0) & 255); }
+function pdfTitleHex(text) {
+  const units = [0xfe, 0xff];
+  for (let i = 0; i < text.length; i++) { const c = text.charCodeAt(i); units.push(c >> 8, c & 255); }
+  return units.map(v => v.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+// PDF с JPEG-страницами: изображения вставляются напрямую, без пересжатия и внешних библиотек.
+async function buildImagePdf(pages, title) {
+  const chunks = [], offsets = [];
+  let length = 0;
+  const push = data => {
+    const bytes = typeof data === "string" ? pdfBytes(data) : data;
+    chunks.push(bytes); length += bytes.length;
+  };
+  const object = (id, dictionary, stream = null) => {
+    offsets[id] = length;
+    push(`${id} 0 obj\n${dictionary}\n`);
+    if (stream) { push("stream\n"); push(stream); push("\nendstream\n"); }
+    push("endobj\n");
+  };
+  const pageId = i => 3 + i * 3, infoId = 3 + pages.length * 3;
+  push("%PDF-1.4\n%"); push(Uint8Array.from([0xe2, 0xe3, 0xcf, 0xd3])); push("\n");
+  object(1, "<< /Type /Catalog /Pages 2 0 R >>");
+  object(2, `<< /Type /Pages /Count ${pages.length} /Kids [${pages.map((_, i) => `${pageId(i)} 0 R`).join(" ")}] >>`);
+  for (let i = 0; i < pages.length; i++) {
+    const p = pages[i], pid = pageId(i), cid = pid + 1, iid = pid + 2;
+    object(pid, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im0 ${iid} 0 R >> >> /Contents ${cid} 0 R >>`);
+    const content = pdfBytes("q\n595.28 0 0 841.89 0 0 cm\n/Im0 Do\nQ");
+    object(cid, `<< /Length ${content.length} >>`, content);
+    const jpeg = new Uint8Array(await p.blob.arrayBuffer());
+    object(iid, `<< /Type /XObject /Subtype /Image /Width ${p.width} /Height ${p.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>`, jpeg);
+  }
+  object(infoId, `<< /Producer (DksObhod) /Title <${pdfTitleHex(title)}> >>`);
+  const xref = length;
+  push(`xref\n0 ${infoId + 1}\n0000000000 65535 f \n`);
+  for (let i = 1; i <= infoId; i++) push(`${String(offsets[i]).padStart(10, "0")} 00000 n \n`);
+  push(`trailer\n<< /Size ${infoId + 1} /Root 1 0 R /Info ${infoId} 0 R >>\nstartxref\n${xref}\n%%EOF`);
+  return new Blob(chunks, { type: "application/pdf" });
+}
+
+async function makeRemarksPdf(title, groups) {
+  const report = new CanvasReport();
+  const all = groups.flatMap(g => g.remarks), open = all.filter(r => !r.resolved).length;
+  await report.paragraph(title, { size: 46, bold: true, color: "#1f4e79", line: 60, gap: 10 });
+  await report.paragraph(`Сформирован: ${dt(Date.now())}`, { size: 22, color: "#5b6b7b", line: 31, gap: 4 });
+  await report.paragraph(`Замечаний: ${all.length} · открыто: ${open} · устранено: ${all.length - open}`, {
+    size: 25, bold: true, line: 35, gap: 24,
+  });
+  for (const group of groups) {
+    if (!group.remarks.length) continue;
+    await report.groupTitle(locationTitle(group.location));
+    for (let i = 0; i < group.remarks.length; i++) await report.remark(group.remarks[i], i + 1);
+  }
+  return buildImagePdf(await report.finish(), title);
+}
+
+async function deliverPdf(blob, filename, title) {
+  const file = new File([blob], filename, { type: "application/pdf" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title }); return; }
+    catch (e) { if (e && e.name === "AbortError") return; }
+  }
+  const url = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = url; a.download = filename; a.style.display = "none";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  toast("PDF создан. Откройте файл в загрузках.");
+}
+
+async function createRemarksReport(globalReport, selectedIds = null) {
+  if (reportBusy) return;
+  const locations = globalReport ? [...GPAS, ...POSITIONS] : [locationById(view.id)];
+  const groups = locations.map(location => ({
+    location,
+    remarks: S.remarks.filter(r => r.gpaId === location.id && (!selectedIds || selectedIds.has(r.id))).sort((a, b) => (a.resolved - b.resolved) || b.ts - a.ts),
+  })).filter(g => g.remarks.length);
+  if (!groups.length) { toast("Нет замечаний для отчёта"); return; }
+  reportBusy = true; render(); toast("Создаю PDF…");
+  const title = globalReport ? "Общий отчёт по замечаниям" : `Отчёт по замечаниям · ${locationTitle(groups[0].location)}`;
+  try {
+    const blob = await makeRemarksPdf(title, groups);
+    const d = new Date(), stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    const prefix = globalReport ? "Otchet_zamechaniya_obshchiy" : `Otchet_zamechaniya_${groups[0].location.id}`;
+    await deliverPdf(blob, `${prefix}_${stamp}.pdf`, title);
+  } catch (e) {
+    console.error(e); toast("Не удалось создать PDF. Попробуйте ещё раз.");
+  } finally { reportBusy = false; render(); }
+}
+
 // ---------- Навигация назад ----------
 function back() {
   if (view.name === "gpa") { if (saveT) commitForm(); formGpa = null; go({ name: "home" }); } else if (view.name === "hangar") go({ name: "gpa", id: view.id });
+  else if (view.name === "position") go({ name: "home" });
   else if (view.name === "remark") { if (remarkDirty()) confirmBox("Изменения не сохранены. Выйти без сохранения?", "Выйти", leaveRemark); else leaveRemark(); }
 }
 
@@ -560,6 +1091,13 @@ app.addEventListener("click", e => {
   const a = el.dataset.act, id = el.dataset.id;
   switch (a) {
     case "open": go({ name: "gpa", id }); break;
+    case "positions": showValanzhinPositions(); break;
+    case "position": go({ name: "position", id }); break;
+    case "global-report": showGlobalReportPicker(); break;
+    case "all-cylinders": showAllCylinders(); break;
+    case "easter-open": showEasterEgg(); break;
+    case "gpa-report": createRemarksReport(false); break;
+    case "position-report": createRemarksReport(false); break;
     case "a2hs-close": try { localStorage.setItem("a2hs-hidden", "1"); } catch (e) {} render(); break;
     case "back": back(); break;
     case "hangar": if (saveT) commitForm(); go({ name: "hangar", id: view.id }); break;
@@ -594,22 +1132,25 @@ app.addEventListener("click", e => {
       });
       break;
     }
-    case "rmview": viewer(id, { onDelete: () => {
-      const d = remarkDraft; d.photos = d.photos.filter(x => x !== id);
-      if (d.added.includes(id)) { d.added = d.added.filter(x => x !== id); delPhoto(id); } else d.removed.push(id);
-      render();
-    } }); break;
+    case "rmview": viewer(id, {
+      onDelete: () => {
+        const d = remarkDraft; d.photos = d.photos.filter(x => x !== id);
+        if (d.added.includes(id)) { d.added = d.added.filter(x => x !== id); delPhoto(id); } else d.removed.push(id);
+        render();
+      },
+      onEdit: () => photoEditor(id, { onSaved: newId => replaceRemarkPhoto(id, newId) }),
+    }); break;
     case "rmsave": {
       const d = remarkDraft;
       if (!d.text.trim() && !d.photos.length) { toast("Добавьте описание или фото"); return; }
       const rec = { id: d.id || uid(), gpaId: d.gpaId, ts: d.ts, text: d.text.trim(), resolved: d.resolved, photos: d.photos };
       if (d.id) S.remarks = S.remarks.map(x => x.id === d.id ? rec : x); else S.remarks.push(rec);
       d.removed.forEach(delPhoto); persist(); remarkDraft = null; toast("Замечание сохранено");
-      go({ name: "gpa", id: view.id, tab: "m" }); break;
+      go(remarkParent(view.id)); break;
     }
     case "rmdel": confirmBox("Удалить это замечание вместе с фото?", "Удалить", () => {
       const d = remarkDraft; [...d.photos, ...d.removed].forEach(delPhoto);
-      S.remarks = S.remarks.filter(x => x.id !== d.id); persist(); remarkDraft = null; go({ name: "gpa", id: view.id, tab: "m" });
+      S.remarks = S.remarks.filter(x => x.id !== d.id); persist(); remarkDraft = null; go(remarkParent(view.id));
     }); break;
   }
 });
@@ -654,6 +1195,7 @@ app.addEventListener("change", async e => {
   }
 });
 app.addEventListener("keydown", e => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.dataset.act === "easter-open") { e.preventDefault(); showEasterEgg(); return; }
   if (e.key === "Enter" && e.target.dataset.num) {
     e.preventDefault(); const all = [...app.querySelectorAll("input[data-num]")]; const i = all.indexOf(e.target);
     if (all[i + 1]) all[i + 1].focus(); else e.target.blur();
@@ -663,6 +1205,7 @@ app.addEventListener("keydown", e => {
 function render() {
   if (view.name === "home") renderHome();
   else if (view.name === "gpa") renderGpa();
+  else if (view.name === "position") renderPosition();
   else if (view.name === "hangar") renderHangar();
   else if (view.name === "remark") renderRemark();
 }

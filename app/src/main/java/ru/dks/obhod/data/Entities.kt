@@ -6,7 +6,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /** Одна запись обхода по ГПА. */
-@Entity(tableName = "readings", indices = [Index("gpaId")])
+@Entity(tableName = "readings", indices = [Index("gpaId"), Index(value = ["syncId"], unique = true)])
 data class Reading(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val gpaId: String,
@@ -24,35 +24,42 @@ data class Reading(
     val pressureBefore: Double?,
     val pressureAfter: Double?,
     val note: String = "",
+    val syncId: String = java.util.UUID.randomUUID().toString(),
+    val updatedAt: Long = System.currentTimeMillis(),
 )
 
-@Entity(tableName = "hangar_photos", indices = [Index("gpaId")])
+@Entity(tableName = "hangar_photos", indices = [Index("gpaId"), Index(value = ["syncId"], unique = true)])
 data class HangarPhoto(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val gpaId: String,
     val path: String,
     val timestamp: Long,
     val caption: String = "",
+    val syncId: String = java.util.UUID.randomUUID().toString(),
+    val updatedAt: Long = System.currentTimeMillis(),
 )
 
 @Entity(tableName = "hangar_notes")
 data class HangarNote(
     @PrimaryKey val gpaId: String,
     val text: String,
+    val updatedAt: Long = System.currentTimeMillis(),
 )
 
-@Entity(tableName = "remarks", indices = [Index("gpaId")])
+@Entity(tableName = "remarks", indices = [Index("gpaId"), Index(value = ["syncId"], unique = true)])
 data class Remark(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val gpaId: String,
     val timestamp: Long,
     val text: String,
     val resolved: Boolean = false,
+    val syncId: String = java.util.UUID.randomUUID().toString(),
+    val updatedAt: Long = System.currentTimeMillis(),
 )
 
 @Entity(
     tableName = "remark_photos",
-    indices = [Index("remarkId")],
+    indices = [Index("remarkId"), Index(value = ["syncId"], unique = true)],
     foreignKeys = [
         ForeignKey(
             entity = Remark::class,
@@ -66,6 +73,7 @@ data class RemarkPhoto(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val remarkId: Long,
     val path: String,
+    val syncId: String = java.util.UUID.randomUUID().toString(),
 )
 
 data class GpaCount(val gpaId: String, val cnt: Int)

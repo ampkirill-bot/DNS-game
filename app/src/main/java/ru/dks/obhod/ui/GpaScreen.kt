@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Opacity
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -81,6 +82,8 @@ import ru.dks.obhod.data.hasDeviation
 import ru.dks.obhod.data.isCylinderDeviation
 import ru.dks.obhod.data.knownValues
 import ru.dks.obhod.data.openRecord
+import ru.dks.obhod.report.PdfGpaGroup
+import ru.dks.obhod.report.PdfRemark
 import ru.dks.obhod.ui.theme.DeviationRed
 import ru.dks.obhod.ui.theme.OkGreen
 import ru.dks.obhod.util.formatDateTime
@@ -149,12 +152,15 @@ fun GpaScreen(
     var loaded by rememberSaveable { mutableStateOf(false) }
     var curId by rememberSaveable { mutableLongStateOf(0L) }       // id текущей записи обхода (0 — ещё нет)
     var curTs by rememberSaveable { mutableLongStateOf(0L) }
+    var curSyncId by rememberSaveable { mutableStateOf("") }
     var roundStart by rememberSaveable { mutableLongStateOf(0L) }  // момент нажатия «Новая запись»
     var editVersion by remember { mutableIntStateOf(0) }
     var pending by remember { mutableStateOf(false) }
     var confirmNew by remember { mutableStateOf(false) }
     var toDelete by remember { mutableStateOf<Reading?>(null) }
+    var remarkToDelete by remember { mutableStateOf<Remark?>(null) }
     var viewPhoto by remember { mutableStateOf<String?>(null) }
+    val pdfReport = rememberPdfReportController()
     val mutex = remember { Mutex() }
 
     // Первая загрузка: в ячейки — текущая запись обхода (если моложе часа).
@@ -162,7 +168,7 @@ fun GpaScreen(
         val list = readings ?: return@LaunchedEffect
         if (!loaded) {
             val o = openRecord(list, roundStart)
-            if (o != null) { form = o.toForm(); curId = o.id; curTs = o.timestamp }
+            if (o != null) { form = o.toForm(); curId = o.id; curTs = o.timestamp; curSyncId = o.syncId }
             loaded = true
         }
     }
@@ -184,11 +190,17 @@ fun GpaScreen(
                     note = note,
                 )
                 if (curId != 0L) {
-                    if (any) dao.upsert(base.copy(id = curId, timestamp = curTs))
-                    else { dao.deleteById(curId); curId = 0; curTs = 0 }
+                    if (any) dao.upsert(base.copy(
+                        id = curId,
+                        timestamp = curTs,
+                        syncId = curSyncId.ifBlank { base.syncId },
+                        updatedAt = System.currentTimeMillis(),
+                    ))
+                    else { dao.deleteById(curId); curId = 0; curTs = 0; curSyncId = "" }
                 } else if (any) {
                     val ts = System.currentTimeMillis()
-                    curId = dao.upsert(base.copy(timestamp = ts)); curTs = ts
+                    curSyncId = base.syncId
+                    curId = dao.upsert(base.copy(timestamp = ts, updatedAt = ts)); curTs = ts
                 }
             }
         }
@@ -310,6 +322,26 @@ fun GpaScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
+                    item {
+                        FilledTonalButton(
+                            onClick = {
+                                val items = remarks.map { rm ->
+                                    PdfRemark(rm, remarkPhotos.filter { it.remarkId == rm.id }.map { it.path })
+                                }
+                                pdfReport.start(
+                                    title = "Отчёт по замечаниям · ${gpa.fullTitle}",
+                                    groups = listOf(PdfGpaGroup(gpa, items)),
+                                    filePrefix = "Otchet_zamechaniya_${gpa.id}",
+                                )
+                            },
+                            enabled = remarks.isNotEmpty() && !pdfReport.busy,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Default.PictureAsPdf, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (pdfReport.busy) "Создаю PDF…" else "Создать отчёт PDF")
+                        }
+                    }
                     if (remarks.isEmpty()) item {
                         Text("Замечаний нет. Нажмите «Замечание», чтобы добавить.", style = MaterialTheme.typography.bodyMedium)
                     }
@@ -320,6 +352,7 @@ fun GpaScreen(
                             onClick = { onRemark(rm.id) },
                             onToggle = { v -> app.scope.launch { app.db.remarks().setResolved(rm.id, v) } },
                             onPhoto = { viewPhoto = it },
+                            onDelete = { remarkToDelete = rm },
                         )
                     }
                 }
@@ -335,7 +368,7 @@ fun GpaScreen(
                 confirmNew = false
                 if (pending) commit(form)
                 roundStart = System.currentTimeMillis() + 1
-                form = List(FIELD_COUNT) { "" }; curId = 0; curTs = 0
+                form = List(FIELD_COUNT) { "" }; curId = 0; curTs = 0; curSyncId = ""
             },
             onDismiss = { confirmNew = false },
         )
@@ -345,13 +378,34 @@ fun GpaScreen(
             text = "Удалить запись от ${formatDateTime(r.timestamp)}?",
             onConfirm = {
                 toDelete = null
-                if (r.id == curId) { form = List(FIELD_COUNT) { "" }; curId = 0; curTs = 0; pending = false }
+                if (r.id == curId) { form = List(FIELD_COUNT) { "" }; curId = 0; curTs = 0; curSyncId = ""; pending = false }
                 app.scope.launch { mutex.withLock { dao.delete(r) } }
             },
             onDismiss = { toDelete = null },
         )
     }
-    viewPhoto?.let { PhotoViewer(it, onDismiss = { viewPhoto = null }) }
+    remarkToDelete?.let { remark ->
+        ConfirmDialog(
+            text = "Удалить это замечание вместе с фото? Отменить действие нельзя.",
+            onConfirm = {
+                remarkToDelete = null
+                val paths = remarkPhotos.filter { it.remarkId == remark.id }.map { it.path }
+                app.scope.launch {
+                    app.db.remarks().delete(remark)
+                    paths.forEach { app.photos.delete(it) }
+                }
+            },
+            onDismiss = { remarkToDelete = null },
+        )
+    }
+    viewPhoto?.let { path ->
+        PhotoViewer(
+            path = path,
+            paths = remarkPhotos.map { it.path },
+            onDismiss = { viewPhoto = null },
+            onNavigate = { viewPhoto = it },
+        )
+    }
 }
 
 @Composable
@@ -384,6 +438,7 @@ private fun eff(form: List<String>, prev: KnownValues, i: Int): Double? = parseN
 private fun Field(
     i: Int, label: String, form: List<String>, prev: KnownValues, set: (Int, String) -> Unit,
     modifier: Modifier, neg: Boolean = false, cylinder: Boolean = false,
+    autoComma: Boolean = cylinder,
 ) {
     val dev = cylinder && isCylinderDeviation(eff(form, prev, i))
     NumberField(
@@ -391,7 +446,7 @@ private fun Field(
         onValueChange = { set(i, it) },
         label = label,
         allowNegative = neg,
-        autoComma = cylinder,
+        autoComma = autoComma,
         isError = dev,
         errorText = if (dev) "ОТКЛОНЕНИЕ" else null,
         placeholder = prev.at(i)?.let { formatNumber(it) },
@@ -427,7 +482,7 @@ private fun ReadingForm(form: List<String>, prev: KnownValues, hasCylinders: Boo
         Section("Компрессор (МСК)", Icons.Default.Opacity) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Field(F_MSK_OIL, "Уровень масла", form, prev, set, Modifier.weight(1f))
-                Field(F_MSK_DIFF, "Перепад фильтр.", form, prev, set, Modifier.weight(1f), neg = true)
+                Field(F_MSK_DIFF, "Перепад фильтр.", form, prev, set, Modifier.weight(1f), neg = true, autoComma = true)
             }
             if (hasCylinders) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -442,8 +497,8 @@ private fun ReadingForm(form: List<String>, prev: KnownValues, hasCylinders: Boo
                 Text("Давление на фильтрах", style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
-                    Field(F_P_BEFORE, "До", form, prev, set, Modifier.weight(1f))
-                    Field(F_P_AFTER, "После", form, prev, set, Modifier.weight(1f))
+                    Field(F_P_BEFORE, "До", form, prev, set, Modifier.weight(1f), autoComma = true)
+                    Field(F_P_AFTER, "После", form, prev, set, Modifier.weight(1f), autoComma = true)
                     val b = eff(form, prev, F_P_BEFORE)
                     val a = eff(form, prev, F_P_AFTER)
                     val diff = if (a != null && b != null) b - a else null
@@ -547,12 +602,13 @@ private fun ReadingCard(r: Reading, showCylinders: Boolean, isCurrent: Boolean, 
 private fun dash(d: Double?): String = if (d == null) "—" else formatNumber(d)
 
 @Composable
-private fun RemarkCard(
+internal fun RemarkCard(
     rm: Remark,
     photos: List<String>,
     onClick: () -> Unit,
     onToggle: (Boolean) -> Unit,
     onPhoto: (String) -> Unit,
+    onDelete: () -> Unit,
 ) {
     Card(
         onClick = onClick,
@@ -570,6 +626,9 @@ private fun RemarkCard(
                     fontWeight = FontWeight.Bold,
                 )
                 Checkbox(checked = rm.resolved, onCheckedChange = onToggle)
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, "Удалить замечание")
+                }
             }
             Text(rm.text.ifBlank { "(без описания)" }, style = MaterialTheme.typography.bodyLarge)
             if (photos.isNotEmpty()) ThumbRow(photos, onPhoto)
