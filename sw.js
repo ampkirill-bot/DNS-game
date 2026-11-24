@@ -1,6 +1,6 @@
 // Офлайн-кэш: страница работает без интернета после первого открытия.
 // При изменении файлов увеличьте версию, чтобы телефоны подхватили обновление.
-const CACHE = "dks-obhod-v17";
+const CACHE = "dks-obhod-v18";
 const FILES = ["./", "index.html", "manifest.webmanifest", "apple-touch-icon.png", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
