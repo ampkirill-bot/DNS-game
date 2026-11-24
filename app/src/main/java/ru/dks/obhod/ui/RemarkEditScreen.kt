@@ -241,7 +241,9 @@ fun RemarkEditScreen(gpaId: String, remarkId: Long, onBack: () -> Unit) {
     viewing?.let { p ->
         PhotoViewer(
             path = p,
+            paths = paths,
             onDismiss = { viewing = null },
+            onNavigate = { viewing = it },
             onDelete = {
                 viewing = null
                 paths = paths - p
