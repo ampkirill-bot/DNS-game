@@ -158,6 +158,7 @@ fun GpaScreen(
     var pending by remember { mutableStateOf(false) }
     var confirmNew by remember { mutableStateOf(false) }
     var toDelete by remember { mutableStateOf<Reading?>(null) }
+    var remarkToDelete by remember { mutableStateOf<Remark?>(null) }
     var viewPhoto by remember { mutableStateOf<String?>(null) }
     val pdfReport = rememberPdfReportController()
     val mutex = remember { Mutex() }
@@ -351,6 +352,7 @@ fun GpaScreen(
                             onClick = { onRemark(rm.id) },
                             onToggle = { v -> app.scope.launch { app.db.remarks().setResolved(rm.id, v) } },
                             onPhoto = { viewPhoto = it },
+                            onDelete = { remarkToDelete = rm },
                         )
                     }
                 }
@@ -382,7 +384,28 @@ fun GpaScreen(
             onDismiss = { toDelete = null },
         )
     }
-    viewPhoto?.let { PhotoViewer(it, onDismiss = { viewPhoto = null }) }
+    remarkToDelete?.let { remark ->
+        ConfirmDialog(
+            text = "Удалить это замечание вместе с фото? Отменить действие нельзя.",
+            onConfirm = {
+                remarkToDelete = null
+                val paths = remarkPhotos.filter { it.remarkId == remark.id }.map { it.path }
+                app.scope.launch {
+                    app.db.remarks().delete(remark)
+                    paths.forEach { app.photos.delete(it) }
+                }
+            },
+            onDismiss = { remarkToDelete = null },
+        )
+    }
+    viewPhoto?.let { path ->
+        PhotoViewer(
+            path = path,
+            paths = remarkPhotos.map { it.path },
+            onDismiss = { viewPhoto = null },
+            onNavigate = { viewPhoto = it },
+        )
+    }
 }
 
 @Composable
@@ -585,6 +608,7 @@ internal fun RemarkCard(
     onClick: () -> Unit,
     onToggle: (Boolean) -> Unit,
     onPhoto: (String) -> Unit,
+    onDelete: () -> Unit,
 ) {
     Card(
         onClick = onClick,
@@ -602,6 +626,9 @@ internal fun RemarkCard(
                     fontWeight = FontWeight.Bold,
                 )
                 Checkbox(checked = rm.resolved, onCheckedChange = onToggle)
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, "Удалить замечание")
+                }
             }
             Text(rm.text.ifBlank { "(без описания)" }, style = MaterialTheme.typography.bodyLarge)
             if (photos.isNotEmpty()) ThumbRow(photos, onPhoto)
