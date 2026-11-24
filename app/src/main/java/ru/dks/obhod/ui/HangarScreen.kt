@@ -141,7 +141,9 @@ fun HangarScreen(gpaId: String, onBack: () -> Unit) {
     viewing?.let { p ->
         PhotoViewer(
             path = p.path,
+            paths = photos.map { it.path },
             onDismiss = { viewing = null },
+            onNavigate = { path -> viewing = photos.firstOrNull { it.path == path } },
             onDelete = {
                 viewing = null
                 app.scope.launch {
