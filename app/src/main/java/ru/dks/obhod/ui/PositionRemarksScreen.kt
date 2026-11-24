@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import ru.dks.obhod.data.PositionList
+import ru.dks.obhod.data.Remark
 import ru.dks.obhod.report.PdfGroup
 import ru.dks.obhod.report.PdfRemark
 
@@ -48,6 +49,7 @@ fun PositionRemarksScreen(positionId: String, onBack: () -> Unit, onRemark: (Lon
     val remarkPhotos by remember(positionId) { app.db.remarks().photosForGpa(positionId) }
         .collectAsStateWithLifecycle(emptyList())
     var viewPhoto by remember { mutableStateOf<String?>(null) }
+    var remarkToDelete by remember { mutableStateOf<Remark?>(null) }
     val pdfReport = rememberPdfReportController()
 
     Scaffold(
@@ -112,10 +114,32 @@ fun PositionRemarksScreen(positionId: String, onBack: () -> Unit, onRemark: (Lon
                     onClick = { onRemark(remark.id) },
                     onToggle = { resolved -> app.scope.launch { app.db.remarks().setResolved(remark.id, resolved) } },
                     onPhoto = { viewPhoto = it },
+                    onDelete = { remarkToDelete = remark },
                 )
             }
         }
     }
 
-    viewPhoto?.let { PhotoViewer(it, onDismiss = { viewPhoto = null }) }
+    remarkToDelete?.let { remark ->
+        ConfirmDialog(
+            text = "Удалить это замечание вместе с фото? Отменить действие нельзя.",
+            onConfirm = {
+                remarkToDelete = null
+                val paths = remarkPhotos.filter { it.remarkId == remark.id }.map { it.path }
+                app.scope.launch {
+                    app.db.remarks().delete(remark)
+                    paths.forEach { app.photos.delete(it) }
+                }
+            },
+            onDismiss = { remarkToDelete = null },
+        )
+    }
+    viewPhoto?.let { path ->
+        PhotoViewer(
+            path = path,
+            paths = remarkPhotos.map { it.path },
+            onDismiss = { viewPhoto = null },
+            onNavigate = { viewPhoto = it },
+        )
+    }
 }
